@@ -43,17 +43,20 @@ async def safety_review(state: WeekendPlanState) -> dict:
     rejections: list[str] = []
 
     # ── Hospital proximity check ───────────────────────────────────────────
-    nearby_hospitals = await registry.activity.search_activities(
-        proposal.location_coordinates,
-        HOSPITAL_SEARCH_RADIUS_MILES,
-        ["hospital", "emergency"],
-    )
-    is_remote = len(nearby_hospitals) == 0
+    # Only runs if family is present AND weather is marginal (avoid Overpass call otherwise)
     has_family = family_profile is not None and len(getattr(family_profile, "members", [])) > 0
     marginal_weather = (
         weather is not None
         and weather.precipitation_probability > MARGINAL_WEATHER_PRECIP_THRESHOLD
     )
+    is_remote = False
+    if has_family and marginal_weather:
+        nearby_hospitals = await registry.activity.search_activities(
+            proposal.location_coordinates,
+            HOSPITAL_SEARCH_RADIUS_MILES,
+            ["hospital", "emergency"],
+        )
+        is_remote = len(nearby_hospitals) == 0
 
     if is_remote and has_family and marginal_weather:
         rejections.append(
@@ -84,14 +87,16 @@ async def safety_review(state: WeekendPlanState) -> dict:
                 f"is after sunset buffer ({sunset_deadline.strftime('%H:%M')})"
             )
 
-    # ── Route cell coverage check ─────────────────────────────────────────
-    from nexus.tools.providers.coverage import estimate_cell_coverage
+    # ── Route cell coverage check (only a hard gate if user requires cell coverage) ───
+    if proposal.require_cell_coverage:
+        from nexus.tools.providers.coverage import estimate_cell_coverage
 
-    coverage = await estimate_cell_coverage(proposal.location_coordinates, registry.routing)
-    if coverage.poor_coverage_percentage > MAX_COVERAGE_POOR_PERCENT:
-        rejections.append(
-            f"Poor cell coverage along route ({coverage.poor_coverage_percentage:.0f}% of route)"
-        )
+        coverage = await estimate_cell_coverage(proposal.location_coordinates, registry.routing)
+        if coverage.poor_coverage_percentage > MAX_COVERAGE_POOR_PERCENT:
+            rejections.append(
+                f"Poor cell coverage along route ({coverage.poor_coverage_percentage:.0f}% of route) "
+                f"— cell coverage required for this plan"
+            )
 
     if rejections:
         return {
@@ -117,7 +122,7 @@ async def safety_review(state: WeekendPlanState) -> dict:
                 details={
                     "is_remote": is_remote,
                     "marginal_weather": marginal_weather,
-                    "coverage_ok": coverage.has_likely_service,
+                    "coverage_ok": not proposal.require_cell_coverage,
                 },
             )
         ],

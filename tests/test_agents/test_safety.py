@@ -54,11 +54,13 @@ def _safety_state(
     duration_hours: float = 5.0,
     route_duration: float = 60.0,
     sunset_hour: int = 20,  # 8pm = plenty of buffer
+    require_cell_coverage: bool = False,
 ) -> dict:
     """Build minimal state for safety_review() tests."""
     proposal = _make_proposal(
         start_time=datetime(2026, 4, 19, start_hour, 0, tzinfo=timezone.utc),
         estimated_duration_hours=duration_hours,
+        require_cell_coverage=require_cell_coverage,
     )
 
     sunset_time = datetime(2026, 4, 19, sunset_hour, 0, tzinfo=timezone.utc)
@@ -238,7 +240,7 @@ class TestSafetyAgent:
 
     async def test_poor_cell_coverage_rejected(self):
         """
-        Road > 0.5 mi away → poor coverage estimate → REJECTED.
+        Road > 0.5 mi away + require_cell_coverage=True → REJECTED.
         """
         from nexus.agents.safety import safety_review
 
@@ -247,6 +249,7 @@ class TestSafetyAgent:
             has_family=False,
             marginal_weather_precip=5.0,
             road_proximity_miles=2.0,  # > 0.5 mi threshold → poor coverage
+            require_cell_coverage=True,  # user explicitly requires cell coverage
         )
         result = await safety_review(state)
 
