@@ -282,9 +282,11 @@ class OverpassActivities:
         )
 
         # Use POST with form-encoded body — required by all Overpass mirrors
+        # Explicit User-Agent required; Overpass returns 406 on python-httpx default UA
+        _HEADERS = {"User-Agent": "nexus-planner/1.0 (weekend-activity-planner)"}
         for endpoint in OVERPASS_ENDPOINTS:
             try:
-                async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+                async with httpx.AsyncClient(timeout=TIMEOUT, headers=_HEADERS) as client:
                     resp = await client.post(
                         endpoint,
                         data={"data": overpass_query},

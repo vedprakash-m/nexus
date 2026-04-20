@@ -145,7 +145,7 @@ async def objective_draft_proposal(state: WeekendPlanState) -> dict:
     choice_index = 0
     start_hour = 9
     try:
-        response = await asyncio.wait_for(fast_model.ainvoke(messages), timeout=60.0)
+        response = await asyncio.wait_for(fast_model.ainvoke(messages), timeout=120.0)
         raw = _extract_json_obj(response.content)
         idx = int(raw.get("choice_index", 0))
         if 0 <= idx < len(candidates):

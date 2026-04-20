@@ -124,7 +124,7 @@ async def family_coordinator_review(state: WeekendPlanState) -> dict:
     llm_family_activities: list[FamilyActivity] = []
 
     try:
-        response = await asyncio.wait_for(fast_model.ainvoke(messages), timeout=60.0)
+        response = await asyncio.wait_for(fast_model.ainvoke(messages), timeout=120.0)
         raw = _extract_json(response.content)
         llm_verdict = raw.get("verdict", "APPROVED")
         llm_rejection_reason = raw.get("rejection_reason") or None

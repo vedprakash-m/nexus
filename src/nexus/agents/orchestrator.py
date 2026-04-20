@@ -151,7 +151,7 @@ async def orchestrator_parse_intent(state: WeekendPlanState) -> dict:
 
     raw: dict = {}
     try:
-        response = await asyncio.wait_for(fast_model.ainvoke(messages), timeout=60.0)
+        response = await asyncio.wait_for(fast_model.ainvoke(messages), timeout=120.0)
         raw = _extract_json(response.content)
         if raw:
             logger.debug("parse_intent: LLM returned JSON keys: %s", list(raw.keys()))

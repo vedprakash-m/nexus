@@ -78,7 +78,7 @@ async def plan_synthesizer(state: WeekendPlanState) -> dict:
 
     narrative_text = ""
     try:
-        narrative_raw = await asyncio.wait_for(model.ainvoke(messages), timeout=60.0)
+        narrative_raw = await asyncio.wait_for(model.ainvoke(messages), timeout=120.0)
         # narrative_raw is a string (not structured output)
         narrative_text = narrative_raw.content if hasattr(narrative_raw, "content") else str(narrative_raw)
     except asyncio.TimeoutError:
