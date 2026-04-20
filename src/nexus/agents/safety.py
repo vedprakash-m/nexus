@@ -72,11 +72,15 @@ async def safety_review(state: WeekendPlanState) -> dict:
             + timedelta(hours=proposal.estimated_duration_hours)
             + timedelta(minutes=driving_home_min)
         )
-        sunset_deadline = weather.daylight.sunset - timedelta(minutes=SUNSET_BUFFER_MINUTES)
+        # Normalise both sides to naive datetimes for comparison (strip tzinfo if present)
+        estimated_return_naive = estimated_return.replace(tzinfo=None) if estimated_return.tzinfo else estimated_return
+        sunset_dt = weather.daylight.sunset
+        sunset_naive = sunset_dt.replace(tzinfo=None) if sunset_dt.tzinfo else sunset_dt
+        sunset_deadline = sunset_naive - timedelta(minutes=SUNSET_BUFFER_MINUTES)
 
-        if estimated_return > sunset_deadline:
+        if estimated_return_naive > sunset_deadline:
             rejections.append(
-                f"Estimated return home ({estimated_return.strftime('%H:%M')}) "
+                f"Estimated return home ({estimated_return_naive.strftime('%H:%M')}) "
                 f"is after sunset buffer ({sunset_deadline.strftime('%H:%M')})"
             )
 

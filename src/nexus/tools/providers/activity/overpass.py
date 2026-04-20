@@ -288,7 +288,6 @@ class OverpassActivities:
                     resp = await client.post(
                         endpoint,
                         data={"data": overpass_query},
-                        headers={"Content-Type": "application/x-www-form-urlencoded"},
                     )
                     if resp.status_code == 200:
                         data = resp.json()
