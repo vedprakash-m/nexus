@@ -73,11 +73,14 @@ async def meteorology_review(state: WeekendPlanState) -> dict:
     # Sunset check: estimate return time
     if daylight.sunset:
         activity_end = proposal.start_time + timedelta(hours=proposal.estimated_duration_hours)
-        latest_end = daylight.sunset - timedelta(minutes=SUNSET_BUFFER_MINUTES)
-        if activity_end > latest_end:
+        # Normalise both sides to naive datetimes for comparison (strip tzinfo if present)
+        activity_end_naive = activity_end.replace(tzinfo=None) if activity_end.tzinfo else activity_end
+        sunset_naive = daylight.sunset.replace(tzinfo=None) if daylight.sunset.tzinfo else daylight.sunset
+        latest_end = sunset_naive - timedelta(minutes=SUNSET_BUFFER_MINUTES)
+        if activity_end_naive > latest_end:
             rejections.append(
-                f"Activity ends at {activity_end.strftime('%H:%M')} — "
-                f"within {SUNSET_BUFFER_MINUTES} minutes of sunset ({daylight.sunset.strftime('%H:%M')})"
+                f"Activity ends at {activity_end_naive.strftime('%H:%M')} — "
+                f"within {SUNSET_BUFFER_MINUTES} minutes of sunset ({sunset_naive.strftime('%H:%M')})"
             )
 
     if rejections:

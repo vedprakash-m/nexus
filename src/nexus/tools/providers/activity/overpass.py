@@ -281,11 +281,15 @@ class OverpassActivities:
             + "\n);\nout center 30;"
         )
 
-        # Use GET (avoids 406 from POST Content-Type conflicts); try each mirror
+        # Use POST with form-encoded body — required by all Overpass mirrors
         for endpoint in OVERPASS_ENDPOINTS:
             try:
                 async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-                    resp = await client.get(endpoint, params={"data": overpass_query})
+                    resp = await client.post(
+                        endpoint,
+                        data={"data": overpass_query},
+                        headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    )
                     if resp.status_code == 200:
                         data = resp.json()
                         results = _parse_overpass_results(data, activity_types, fitness_level)
