@@ -158,7 +158,7 @@ async def orchestrator_parse_intent(state: WeekendPlanState) -> dict:
         else:
             logger.warning("parse_intent: LLM returned no parseable JSON — using profile fallback")
     except asyncio.TimeoutError:
-        logger.warning("parse_intent: LLM timed out after 60 s — using profile fallback")
+        logger.warning("parse_intent: LLM timed out after 120 s — using profile fallback")
     except Exception as exc:
         logger.warning("parse_intent: LLM error (%s) — using profile fallback", exc)
 
