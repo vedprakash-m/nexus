@@ -76,6 +76,17 @@ def _build_context(state: "WeekendPlanState", narrative_text: str) -> dict:
     # Build timeline from proposal + meal
     timeline = _build_timeline(proposal, meal, routes)
 
+    # Determine meal section label from timeline
+    meal_section_label = "Meal"
+    for item in timeline:
+        label = item.get("label", "")
+        if "Breakfast at" in label:
+            meal_section_label = "Breakfast"
+        elif "Lunch at" in label:
+            meal_section_label = "Lunch"
+        elif "Dinner at" in label:
+            meal_section_label = "Dinner"
+
     # Verdict flags (no percentages — boolean only)
     weather_ok = (
         weather is not None
@@ -108,6 +119,7 @@ def _build_context(state: "WeekendPlanState", narrative_text: str) -> dict:
         "backup_summary": _backup_summary(proposal, backup),
         "preparation_checklist": _prep_checklist(proposal, weather),
         "emergency_info": _emergency_info(state),
+        "meal_section_label": meal_section_label,
         "weather_ok": weather_ok,
         "family_ok": family_ok,
         "route_ok": route_ok,
@@ -147,9 +159,24 @@ def _build_timeline(proposal, meal, routes: dict) -> list[dict]:
         end = start + timedelta(hours=proposal.estimated_duration_hours)
         items.append({"time": end.strftime("%-I:%M %p"), "label": "Activity ends", "who": None})
 
-        # Meal
+        # Meal — schedule after activity + drive to restaurant
         if meal and hasattr(meal, "name"):
-            items.append({"time": end.strftime("%-I:%M %p"), "label": f"Dinner at {meal.name}", "who": None})
+            from datetime import timedelta as td
+            # Add travel time from trail to restaurant (use route if available)
+            trail_to_restaurant = routes.get("activity_to_restaurant")
+            travel_min = trail_to_restaurant.duration_minutes if trail_to_restaurant and hasattr(trail_to_restaurant, "duration_minutes") else 20.0
+            meal_time = end + td(minutes=travel_min)
+
+            # Pick label based on time of day
+            hour = meal_time.hour
+            if hour < 11:
+                meal_label = "Breakfast"
+            elif hour < 15:
+                meal_label = "Lunch"
+            else:
+                meal_label = "Dinner"
+
+            items.append({"time": meal_time.strftime("%-I:%M %p"), "label": f"{meal_label} at {meal.name}", "who": None})
     return items
 
 
