@@ -1,0 +1,27 @@
+{
+  "businesses": [
+    {
+      "id": "yelp-001",
+      "name": "Green Garden Cafe",
+      "rating": 4.5,
+      "price": "$$",
+      "is_closed": false,
+      "categories": [{"alias": "vegetarian", "title": "Vegetarian"}],
+      "coordinates": {"latitude": 37.3900, "longitude": -122.0800},
+      "location": {"display_address": ["123 Main St", "Palo Alto, CA 94301"]},
+      "distance": 1200.0
+    },
+    {
+      "id": "yelp-002",
+      "name": "Summit Burgers",
+      "rating": 4.2,
+      "price": "$",
+      "is_closed": false,
+      "categories": [{"alias": "burgers", "title": "Burgers"}],
+      "coordinates": {"latitude": 37.3920, "longitude": -122.0810},
+      "location": {"display_address": ["456 Oak Ave", "Palo Alto, CA 94301"]},
+      "distance": 1800.0
+    }
+  ],
+  "total": 2
+}

@@ -1,0 +1,25 @@
+{
+  "status": "OK",
+  "results": [
+    {
+      "place_id": "ChIJgoogle001",
+      "name": "Green Garden Cafe",
+      "rating": 4.5,
+      "price_level": 2,
+      "types": ["restaurant", "vegetarian_restaurant", "food", "establishment"],
+      "geometry": {"location": {"lat": 37.3900, "lng": -122.0800}},
+      "vicinity": "123 Main St, Palo Alto",
+      "opening_hours": {"open_now": true}
+    },
+    {
+      "place_id": "ChIJgoogle002",
+      "name": "Summit Burgers",
+      "rating": 4.2,
+      "price_level": 1,
+      "types": ["restaurant", "food", "establishment"],
+      "geometry": {"location": {"lat": 37.3920, "lng": -122.0810}},
+      "vicinity": "456 Oak Ave, Palo Alto",
+      "opening_hours": {"open_now": true}
+    }
+  ]
+}

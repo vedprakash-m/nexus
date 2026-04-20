@@ -1,0 +1,95 @@
+[project]
+name = "nexus"
+version = "0.1.0"
+description = "Local-first multi-agent weekend planning system"
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "MIT" }
+
+dependencies = [
+    # Agent framework
+    "langgraph>=1.1.0,<2",
+    "langgraph-checkpoint-sqlite>=3.0.0",
+    "langchain-core>=1.0.0,<2",
+    "langchain-ollama>=1.0.0,<2",
+    # State validation
+    "pydantic>=2.7.0,<3",
+    "pydantic-settings>=2.3.0,<3",
+    # Web framework
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "jinja2>=3.1.0",
+    "websockets>=12.0",
+    # HTTP client
+    "httpx>=0.28.0",
+    # Caching
+    "diskcache>=5.6.0",
+    # Config
+    "ruamel.yaml>=0.18.0",
+    # CLI
+    "typer>=0.15.0",
+    "rich>=13.7.0",
+    # Markdown output
+    "Markdown>=3.6",
+    # System checks
+    "psutil>=6.0.0",
+    # python-slugify for plan filenames
+    "python-slugify>=8.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=1.0.0",
+    "pytest-httpx>=0.35.0",
+    "pyright>=1.1.390",
+    "ruff>=0.9.0",
+]
+
+[project.scripts]
+nexus = "nexus.cli.app:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nexus"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["-ra", "--tb=short"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+    "ANN",  # flake8-annotations
+    "RUF",  # ruff-specific rules
+    "SIM",  # flake8-simplify
+    "TCH",  # flake8-type-checking
+]
+ignore = [
+    "ANN401",  # dynamically typed expressions (Any)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN", "S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

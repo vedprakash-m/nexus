@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Nexus{% endblock %}</title>
+  <style>
+    /* ── Color tokens — UX §12.3 ── */
+    :root {
+      --color-bg:           #fafaf9;
+      --color-surface:      #ffffff;
+      --color-border:       #e5e2dc;
+      --color-text:         #1a1917;
+      --color-text-muted:   #6b6762;
+      --color-accent:       #2d6a4f;
+      --color-accent-light: #d8f3dc;
+      --color-warn:         #d9832e;
+      --color-warn-light:   #fef3e2;
+      --color-danger:       #c0392b;
+      --color-danger-light: #fdf0ef;
+      --color-amber:        #d9832e;
+      --color-amber-light:  #fef3e2;
+      --color-green:        #2d6a4f;
+      --color-green-light:  #d8f3dc;
+
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      --font-mono: "SF Mono", ui-monospace, "Cascadia Code", monospace;
+
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 16px;
+
+      --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
+      --shadow-md: 0 4px 12px rgba(0,0,0,.10);
+
+      --max-width: 680px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-bg:           #111110;
+        --color-surface:      #1c1c1a;
+        --color-border:       #2e2d29;
+        --color-text:         #e8e5e0;
+        --color-text-muted:   #8a8680;
+        --color-accent:       #52b788;
+        --color-accent-light: #1a3528;
+        --color-warn-light:   #2a2010;
+        --color-danger-light: #2a1010;
+        --color-amber-light:  #2a2010;
+        --color-green-light:  #1a3528;
+      }
+    }
+
+    /* ── Typography — UX §12.2 ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 16px; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-bg);
+      color: var(--color-text);
+      line-height: 1.55;
+      padding: 1.5rem 1rem;
+      max-width: var(--max-width);
+      margin: 0 auto;
+    }
+
+    /* ── Cockpit layout — full-screen desktop ── */
+    body.cockpit {
+      max-width: none;
+      height: 100dvh;
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .cockpit-topbar {
+      display: flex;
+      align-items: center;
+      gap: .85rem;
+      padding: .65rem 1.25rem;
+      border-bottom: 1px solid var(--color-border);
+      font-size: .88rem;
+      flex-shrink: 0;
+      background: var(--color-surface);
+    }
+    .cockpit-shell {
+      display: grid;
+      grid-template-columns: 280px 1fr 270px;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .cockpit-left,
+    .cockpit-main,
+    .cockpit-right {
+      overflow-y: auto;
+      padding: 1.1rem 1.25rem;
+      min-height: 0;
+    }
+    .cockpit-left  { border-right: 1px solid var(--color-border); }
+    .cockpit-right { border-left:  1px solid var(--color-border); }
+    .cockpit-bottombar {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      padding: .75rem 1.25rem;
+      border-top: 1px solid var(--color-border);
+      background: var(--color-surface);
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .ck-label {
+      font-size: .68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--color-text-muted);
+      margin-bottom: .6rem;
+      margin-top: 0;
+    }
+    .ck-sublabel {
+      font-size: .65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--color-text-muted);
+      margin-bottom: .35rem;
+      opacity: .75;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .3rem;
+      padding: .2rem .6rem;
+      border-radius: 99px;
+      font-size: .8rem;
+      font-weight: 500;
+      background: var(--color-bg);
+      border: 1px solid var(--color-border);
+      color: var(--color-text-muted);
+      white-space: nowrap;
+    }
+    .chip em { font-style: normal; }
+    .ck-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
+    .ck-section { margin-bottom: 1rem; }
+
+    h1 { font-size: 1.75rem; font-weight: 700; letter-spacing: -.02em; }
+    h2 { font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; }
+    h3 { font-size: 1.05rem; font-weight: 600; margin-top: 1rem; }
+    p  { margin-top: .5rem; color: var(--color-text-muted); }
+
+    a { color: var(--color-accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      margin-top: 1rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* ── Buttons — UX §12.6 ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .6rem 1.25rem;
+      border-radius: var(--radius-sm);
+      border: none;
+      font-family: var(--font-sans);
+      font-size: .95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .15s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn:active { opacity: .7; }
+    .btn-primary  { background: var(--color-accent); color: #fff; }
+    .btn-danger   { background: var(--color-danger); color: #fff; }
+    .btn-ghost    { background: transparent; border: 1px solid var(--color-border); color: var(--color-text); }
+
+    /* ── Timeline — UX §12.5 ── */
+    .timeline { position: relative; padding-left: 2rem; margin-top: 1rem; }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: .65rem;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--color-border);
+    }
+    .timeline-item { position: relative; padding: .5rem 0 .5rem 0; }
+    .timeline-item::before {
+      content: "";
+      position: absolute;
+      left: -1.375rem;
+      top: .75rem;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--color-accent);
+      border: 2px solid var(--color-surface);
+    }
+    .timeline-time { font-size: .8rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+
+    /* ── Progress lines ── */
+    .progress-line { display: flex; align-items: center; gap: .6rem; padding: .35rem 0; font-size: .95rem; }
+    .progress-line .icon { width: 1rem; text-align: center; }
+    .progress-line.active  .icon { color: var(--color-accent); }
+    .progress-line.complete .icon { color: var(--color-accent); }
+    .progress-line.failed  .icon { color: var(--color-danger); }
+
+    /* ── Verdict strip ── */
+    .verdict-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .4rem;
+      margin: .75rem 0;
+    }
+    .verdict-tag {
+      padding: .2rem .6rem;
+      border-radius: 99px;
+      font-size: .8rem;
+      font-weight: 600;
+    }
+    .verdict-tag.green  { background: var(--color-green-light);  color: var(--color-green); }
+    .verdict-tag.amber  { background: var(--color-amber-light);  color: var(--color-amber); }
+    .verdict-tag.red    { background: var(--color-danger-light); color: var(--color-danger); }
+
+    /* ── Stats bar ── */
+    .stats-bar { display: flex; flex-wrap: wrap; gap: 1rem; margin: .75rem 0; font-size: .88rem; color: var(--color-text-muted); }
+    .stats-bar strong { color: var(--color-text); }
+
+    /* ── Confidence labels — UX §12.8 ── */
+    .confidence-label {
+      font-size: .78rem;
+      color: var(--color-text-muted);
+      font-style: italic;
+    }
+    .confidence-label.estimated::after { content: " (est.)"; }
+    .confidence-label.cached::after    { content: " (cached)"; }
+
+    /* ── Input ── */
+    .text-input {
+      width: 100%;
+      padding: .7rem 1rem;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      background: var(--color-surface);
+      color: var(--color-text);
+    }
+    .text-input:focus { outline: 2px solid var(--color-accent); outline-offset: 1px; }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+
+    /* ── Print — UX §12.7 ── */
+    @media print {
+      .btn, .no-print { display: none !important; }
+      .card { box-shadow: none; border: 1px solid #ccc; }
+      body { padding: 0; }
+    }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+{% block body %}{% endblock %}
+</body>
+</html>

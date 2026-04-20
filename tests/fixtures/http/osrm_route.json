@@ -1,0 +1,27 @@
+{
+  "code": "Ok",
+  "routes": [
+    {
+      "geometry": "fake_geometry",
+      "legs": [],
+      "distance": 48270.5,
+      "duration": 2745.3,
+      "weight_name": "routability",
+      "weight": 2745.3
+    }
+  ],
+  "waypoints": [
+    {
+      "hint": "start",
+      "distance": 5.0,
+      "name": "Start Road",
+      "location": [-122.4194, 37.7749]
+    },
+    {
+      "hint": "end",
+      "distance": 8.2,
+      "name": "End Road",
+      "location": [-122.0842, 37.3861]
+    }
+  ]
+}

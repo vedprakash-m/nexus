@@ -1,0 +1,52 @@
+---
+date: {{ plan.target_date }}
+activity: {{ plan.activity_name }}
+status: approved
+request_id: {{ plan.request_id }}
+---
+
+# {{ plan.activity_name }}
+
+**{{ plan.target_date }}** · {{ plan.estimated_duration_hours | round(1) }}h{% if plan.start_time %} · Start {{ plan.start_time }}{% endif %}
+
+{% if plan.why_this_plan %}
+## Why This Plan
+
+{{ plan.why_this_plan }}
+{% endif %}
+
+{% if plan.day_narrative %}
+## Your Day
+
+{{ plan.day_narrative }}
+{% endif %}
+
+## Day at a Glance
+
+{% for item in plan.timeline %}
+- **{{ item.time }}** {{ item.label }}{% if item.who %} · {{ item.who }}{% endif %}
+{% endfor %}
+
+{% if plan.backup_activity %}
+## Backup Option
+
+{{ plan.backup_activity.activity_name }}
+{% if plan.backup_summary %}
+{{ plan.backup_summary }}
+{% endif %}
+{% endif %}
+
+## Before You Go
+
+{% for item in plan.preparation_checklist %}
+- [ ] {{ item }}
+{% endfor %}
+
+{% if plan.emergency_info %}
+_Emergency: {{ plan.emergency_info }}_
+{% endif %}
+
+{% if confidence_labels %}
+---
+_Data notes: {% for label in confidence_labels %}{{ label.text }}{% if not loop.last %}, {% endif %}{% endfor %}_
+{% endif %}

@@ -1,0 +1,29 @@
+{% extends "base.html.j2" %}
+{% block title %}Nexus — Your Plans{% endblock %}
+{% block body %}
+<h1>Your Plans</h1>
+<p><a href="/">← Back</a></p>
+
+{% if plans %}
+{% for plan in plans %}
+<div class="card" style="display:flex; align-items:center; justify-content:space-between;">
+  <div>
+    <strong>{{ plan.activity }}</strong><br>
+    <span style="font-size:.85rem; color:var(--color-text-muted);">{{ plan.date }}</span>
+    {% if plan.approved %}
+    <span style="font-size:.8rem; color:var(--color-accent); margin-left:.5rem;">✔ Approved</span>
+    {% endif %}
+    {% if plan.has_feedback %}
+    <span style="font-size:.8rem; color:var(--color-text-muted); margin-left:.5rem;">✎ Feedback</span>
+    {% endif %}
+  </div>
+  <a href="/plans/{{ plan.request_id }}" class="btn btn-ghost" style="font-size:.85rem;">View</a>
+</div>
+{% endfor %}
+{% else %}
+<div class="card" style="text-align:center; color:var(--color-text-muted); padding:2rem;">
+  <p>No trips to reflect on yet.</p>
+  <a href="/" class="btn btn-primary" style="margin-top:1rem;">Plan your first weekend →</a>
+</div>
+{% endif %}
+{% endblock %}

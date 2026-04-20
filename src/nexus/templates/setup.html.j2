@@ -1,0 +1,132 @@
+{% extends "base.html.j2" %}
+{% block title %}Nexus — Set Up{% endblock %}
+{% block body %}
+<h1>Set up Nexus</h1>
+{% if profile_exists %}
+<p>Your profile is saved. Update any section below.</p>
+<div style="display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1rem;">
+  <a href="#block-about"      class="btn btn-ghost">Edit My Details</a>
+  <a href="#block-activities" class="btn btn-ghost">Edit Activities</a>
+  <a href="#block-home"       class="btn btn-ghost">Edit Home Base</a>
+  <a href="#block-apikeys"    class="btn btn-ghost">Edit API Keys</a>
+</div>
+{% else %}
+<p style="font-size:.9rem;">Everything stays on your machine — no accounts, no cloud.</p>
+{% endif %}
+
+<form id="setup-form">
+  <!-- Block 1: About You -->
+  <div class="card" id="block-about">
+    <h2>About You</h2>
+    <label>Your name<br>
+      <input class="text-input" style="margin-top:.35rem" name="name" type="text" placeholder="Alex" value="{{ profile.user.name if profile else '' }}" required>
+    </label>
+    <label style="display:block; margin-top:1rem">Fitness level<br>
+      <select class="text-input" name="fitness_level" style="margin-top:.35rem">
+        <option value="beginner"     {% if profile and profile.user.fitness_level == 'beginner' %}selected{% endif %}>Beginner</option>
+        <option value="intermediate" {% if profile and profile.user.fitness_level == 'intermediate' %}selected{% endif %}>Intermediate</option>
+        <option value="advanced"     {% if profile and profile.user.fitness_level == 'advanced' %}selected{% endif %}>Advanced</option>
+      </select>
+    </label>
+    <label style="display:block; margin-top:1rem">Dietary restrictions (comma-separated)<br>
+      <input class="text-input" name="dietary_restrictions" style="margin-top:.35rem" placeholder="vegetarian, gluten-free" value="{{ (profile.user.dietary_restrictions | join(', ')) if profile else '' }}">
+    </label>
+    <label style="display:block; margin-top:1rem">Max driving (minutes each way)<br>
+      <input class="text-input" name="max_driving_minutes" type="number" min="10" max="300" style="margin-top:.35rem" value="{{ profile.user.max_driving_minutes if profile else 90 }}">
+    </label>
+  </div>
+
+  <!-- Block 2: Home Base -->
+  <div class="card" id="block-home">
+    <h2>Home Base</h2>
+    <p style="font-size:.88rem;">Used to calculate travel time — never shared.</p>
+    <label style="display:block; margin-top:1rem">City or address<br>
+      <input class="text-input" name="home_address" type="text" style="margin-top:.35rem"
+             placeholder="San Francisco, CA"
+             value="{{ profile.user.home_address if profile and profile.user.home_address else '' }}" required>
+    </label>
+    <p style="font-size:.82rem; margin-top:.4rem; color:var(--color-text-muted);">e.g. &ldquo;Oakland, CA&rdquo; or &ldquo;123 Main St, Austin TX&rdquo;</p>
+  </div>
+
+  <!-- Block 3: Activities -->
+  <div class="card" id="block-activities">
+    <h2>Preferred Activities</h2>
+    <label>What do you love? (comma-separated)<br>
+      <input class="text-input" name="preferred_activities" style="margin-top:.35rem" placeholder="hiking, cycling, beach" value="{{ (profile.user.preferred_activities | join(', ')) if profile else '' }}">
+    </label>
+  </div>
+
+  <!-- Block 4: API Keys -->
+  <div class="card" id="block-apikeys">
+    <h2>API Keys</h2>
+    <p style="font-size:.88rem;">One key covers everything — address lookup, restaurant search, and place details. Never logged.</p>
+    <label style="display:block; margin-top:1rem">Google Maps API key<br>
+      <input class="text-input" name="google_places_api_key" type="password" style="margin-top:.35rem" placeholder="Leave blank to use free fallback" autocomplete="off">
+    </label>
+    <p style="font-size:.82rem; margin-top:.4rem; color:var(--color-text-muted);">
+      <a href="https://console.cloud.google.com/" target="_blank" rel="noopener" style="color:var(--color-accent);">Google Cloud Console &rarr;</a>
+      &mdash; create a project, enable <strong>Geocoding API</strong> + <strong>Places API</strong>, create an API key. Google gives $200/month free credit. Without a key, address lookup falls back to OpenStreetMap (free).
+    </p>
+    {% if places_configured %}
+    <p style="font-size:.82rem; margin-top:.35rem; color: var(--color-accent);">&#10004; Google Places key configured ({{ places_key_prefix }}...)</p>
+    {% endif %}
+    <button type="button" id="test-places" class="btn btn-ghost" style="margin-top:.75rem; font-size:.88rem;">Test key</button>
+    <span id="places-status" style="font-size:.88rem; margin-left:.5rem;"></span>
+  </div>
+
+  <div style="margin-top:1.5rem; display:flex; gap:.75rem;">
+    <button type="submit" class="btn btn-primary">Save Profile →</button>
+  </div>
+</form>
+
+<div id="save-result" style="margin-top:1rem; font-size:.9rem;"></div>
+
+<script>
+document.getElementById("setup-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const result = document.getElementById("save-result");
+  result.textContent = "Looking up your location…";
+  result.style.color = "var(--color-text-muted)";
+  const fd = new FormData(e.target);
+  const body = {
+    name: fd.get("name"),
+    home_address: fd.get("home_address"),
+    fitness_level: fd.get("fitness_level"),
+    dietary_restrictions: fd.get("dietary_restrictions").split(",").map(s=>s.trim()).filter(Boolean),
+    preferred_activities: fd.get("preferred_activities").split(",").map(s=>s.trim()).filter(Boolean),
+    max_driving_minutes: parseInt(fd.get("max_driving_minutes")),
+  };
+  const r = await fetch("/api/setup", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
+  if (r.ok) {
+    const placesKey = fd.get("google_places_api_key");
+    if (placesKey) {
+      await fetch("/api/setup/api-keys", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({google_places_api_key: placesKey}) });
+    }
+    result.textContent = "Saved. Taking you home...";
+    result.style.color = "var(--color-accent)";
+    setTimeout(() => location.href = "/", 1000);
+  } else {
+    result.textContent = "Something went wrong. Check your entries.";
+    result.style.color = "var(--color-danger)";
+  }
+});
+
+document.getElementById("test-places")?.addEventListener("click", async () => {
+  const status = document.getElementById("places-status");
+  const keyInput = document.querySelector('input[name="google_places_api_key"]');
+  const keyValue = keyInput?.value?.trim();
+  status.textContent = "Saving...";
+  if (keyValue) {
+    await fetch("/api/setup/api-keys", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({google_places_api_key: keyValue}),
+    });
+  }
+  const r = await fetch("/api/setup/api-keys/status");
+  const data = await r.json();
+  status.textContent = data.places_configured ? "✔ Key saved" : "✘ Key not set";
+  status.style.color = data.places_configured ? "var(--color-accent)" : "var(--color-danger)";
+});
+</script>
+{% endblock %}

@@ -1,0 +1,147 @@
+{% extends "base.html.j2" %}
+{% block title %}Nexus{% endblock %}
+{% block body_class %}launcher{% endblock %}
+{% block head %}
+<style>
+body.launcher {
+  max-width: none;
+  height: 100dvh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.launcher-nav {
+  position: absolute;
+  top: 0; right: 0;
+  padding: .85rem 1.25rem;
+  font-size: .8rem;
+  display: flex;
+  gap: 1rem;
+}
+.launcher-nav a {
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+.launcher-nav a:hover { color: var(--color-accent); }
+.launcher-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  width: 100%;
+  max-width: 560px;
+  padding: 0 1.5rem;
+  text-align: center;
+}
+.launcher-form {
+  width: 100%;
+  display: flex;
+  gap: .5rem;
+  align-items: stretch;
+}
+.launcher-identity {
+  font-size: .82rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+.launcher-identity a { color: var(--color-text-muted); }
+.launcher-identity a:hover { color: var(--color-accent); }
+.launcher-recents {
+  width: 100%;
+  border-top: 1px solid var(--color-border);
+  padding-top: 1.1rem;
+}
+.launcher-recents-label {
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--color-text-muted);
+  margin-bottom: .65rem;
+  text-align: left;
+}
+.recent-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .5rem 0;
+  border-bottom: 1px solid var(--color-border);
+  text-decoration: none;
+  color: inherit;
+}
+.recent-row:last-child { border-bottom: none; }
+.recent-row:hover .recent-label { color: var(--color-accent); }
+.recent-label { font-size: .88rem; font-weight: 500; color: var(--color-text); }
+.recent-date  { font-size: .76rem; color: var(--color-text-muted); }
+</style>
+{% endblock %}
+{% block body %}
+
+<nav class="launcher-nav">
+  <a href="/preflight">System</a>
+  <a href="/setup">Profile</a>
+</nav>
+
+<div class="launcher-content">
+
+  <div>
+    <h1 style="font-size:3rem; letter-spacing:-.04em; margin-bottom:.35rem;">Nexus</h1>
+    <p style="font-size:.95rem; color:var(--color-text-muted); margin:0;">Plan your weekend in seconds.</p>
+  </div>
+
+  <form id="plan-form" class="launcher-form">
+    <input class="text-input" id="intent" name="intent" type="text"
+           placeholder="e.g. hike with the kids, something mellow…"
+           autocomplete="off" required
+           style="flex:1; font-size:1rem; padding:.75rem 1rem;">
+    <button type="submit" class="btn btn-primary"
+            style="white-space:nowrap; padding:.75rem 1.5rem; font-size:.95rem;">Plan →</button>
+  </form>
+
+  <p class="launcher-identity">
+    {% if config.user.name %}Planning for {{ config.user.name }}{% endif %}
+    {% if config.user.home_address %} · {{ config.user.home_address.split(",")[0] }}{% endif %}
+    {% if config.user.fitness_level %} · {{ config.user.fitness_level | capitalize }}{% endif %}
+    {% if config.user.dietary_restrictions %} · {{ config.user.dietary_restrictions | join(", ") }}{% endif %}
+    · <a href="/setup">Edit</a>
+  </p>
+
+  {% if recent_plans %}
+  <div class="launcher-recents">
+    <div class="launcher-recents-label">Recent</div>
+    {% for plan in recent_plans[:5] %}
+    <a href="/plans/{{ plan.request_id }}" class="recent-row">
+      <span class="recent-label">{{ plan.activity }}</span>
+      <span class="recent-date">{{ plan.date }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+document.getElementById("plan-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const intent = document.getElementById("intent").value.trim();
+  const r = await fetch("/api/plans", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ intent })
+  });
+  const data = await r.json();
+  if (r.ok) {
+    location.href = "/plan?id=" + encodeURIComponent(data.request_id);
+  }
+});
+
+const _prefill = new URLSearchParams(location.search).get("intent");
+if (_prefill) {
+  document.getElementById("intent").value = _prefill;
+  document.getElementById("plan-form").requestSubmit();
+}
+</script>
+{% endblock %}

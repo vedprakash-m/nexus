@@ -1,0 +1,11 @@
+{
+  "code": "Ok",
+  "waypoints": [
+    {
+      "hint": "test",
+      "distance": 12.5,
+      "name": "Main Street",
+      "location": [-122.4194, 37.7749]
+    }
+  ]
+}

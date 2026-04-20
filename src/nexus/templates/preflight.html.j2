@@ -1,0 +1,53 @@
+{% extends "base.html.j2" %}
+{% block title %}Nexus — Preflight{% endblock %}
+{% block body %}
+<h1>System Check</h1>
+<p>Everything needs to pass before Nexus can plan for you.</p>
+
+<div id="checks" class="card">
+  <div class="progress-line {% if status.ollama_running %}complete{% elif not status.profile_exists %}active{% else %}failed{% endif %}">
+    <span class="icon">{% if status.ollama_running %}✔{% else %}✘{% endif %}</span>
+    Ollama running
+  </div>
+  <div class="progress-line {% if status.model_available %}complete{% elif not status.ollama_running %}active{% else %}failed{% endif %}">
+    <span class="icon">{% if status.model_available %}✔{% elif not status.ollama_running %}○{% else %}✘{% endif %}</span>
+    Local model available
+  </div>
+  <div class="progress-line {% if status.profile_exists %}complete{% else %}active{% endif %}">
+    <span class="icon">{% if status.profile_exists %}✔{% else %}✘{% endif %}</span>
+    Profile configured
+  </div>
+</div>
+
+{% if status.issues %}
+<div class="card" style="border-color: var(--color-danger-light); background: var(--color-danger-light);">
+  <h2>What to fix</h2>
+  {% for issue in status.issues %}
+  <p>{{ issue }}</p>
+  {% endfor %}
+  {% if not status.ollama_running %}
+  <pre style="margin-top:.75rem; background: var(--color-bg); padding:.75rem; border-radius:4px; font-family: var(--font-mono); font-size: .88rem; overflow-x:auto;">ollama serve</pre>
+  {% endif %}
+  {% if not status.model_available and status.ollama_running %}
+  <pre style="margin-top:.75rem; background: var(--color-bg); padding:.75rem; border-radius:4px; font-family: var(--font-mono); font-size: .88rem; overflow-x:auto;">ollama pull {{ model_name }}</pre>
+  {% endif %}
+</div>
+{% endif %}
+
+<div style="margin-top: 1.5rem; display: flex; gap: .75rem;">
+  {% if status.all_ok %}
+    <a href="/" class="btn btn-primary">Continue →</a>
+  {% else %}
+    <button class="btn btn-primary" id="recheck">Re-check</button>
+  {% endif %}
+  {% if not status.profile_exists %}
+    <a href="/setup" class="btn btn-ghost">Set up profile</a>
+  {% endif %}
+</div>
+
+<script>
+document.getElementById("recheck")?.addEventListener("click", () => {
+  fetch("/api/preflight").then(r => r.json()).then(() => location.reload());
+});
+</script>
+{% endblock %}

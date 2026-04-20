@@ -1,0 +1,662 @@
+{% extends "base.html.j2" %}
+{% block title %}Nexus — Planning{% endblock %}
+{% block body_class %}cockpit{% endblock %}
+
+{% block head %}
+<style>
+/* ── Animations ── */
+@keyframes spin     { to { transform: rotate(360deg); } }
+@keyframes fade-up  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+@keyframes pop-in   { 0% { transform:scale(.7); opacity:0; } 70% { transform:scale(1.12); } 100% { transform:scale(1); opacity:1; } }
+@keyframes pulse-ring { 0%,100% { box-shadow:0 0 0 0 currentColor; opacity:1; } 60% { box-shadow:0 0 0 5px transparent; opacity:.85; } }
+@keyframes gnode-glow { 0%,100% { filter:drop-shadow(0 0 0 var(--color-accent)); } 50% { filter:drop-shadow(0 0 5px var(--color-accent)); } }
+@keyframes flow-edge  { to { stroke-dashoffset:-20; } }
+
+/* ── Status banner ── */
+.status-banner {
+  display: flex; align-items: center; gap: .7rem;
+  padding: .38rem .85rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  font-size: .88rem; font-weight: 600;
+  background: var(--color-surface); color: var(--color-text-muted);
+  transition: background .35s, border-color .35s, color .35s;
+  flex: 1; min-width: 0;
+}
+.status-banner.working { background: var(--color-accent-light); border-color: var(--color-accent); color: var(--color-accent); }
+.status-banner.done    { background: var(--color-accent-light); border-color: var(--color-accent); color: var(--color-accent); }
+.status-banner.error   { background: var(--color-danger-light); border-color: var(--color-danger); color: var(--color-danger); }
+.status-indicator {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: currentColor; flex-shrink: 0; transition: background .3s;
+}
+.status-indicator.pulsing { animation: pulse-ring 1.4s cubic-bezier(.4,0,.6,1) infinite; }
+.status-elapsed {
+  margin-left: auto; font-size: .82rem; font-weight: 500;
+  font-variant-numeric: tabular-nums; opacity: .7;
+}
+
+/* ── 2-zone layout (no cockpit-main) ── */
+body.cockpit .cockpit-shell {
+  grid-template-columns: 42% 1fr;
+}
+body.cockpit .cockpit-left {
+  padding: .75rem .5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Graph ── */
+.gnode rect   { fill: var(--color-bg); stroke: var(--color-border); stroke-width: 1.5; transition: fill .3s, stroke .3s; }
+.gnode text   { fill: var(--color-text-muted); font-size: 9.5px; font-family: var(--font-mono); transition: fill .2s; }
+.gnode-sm text { font-size: 8px; }
+.gnode[data-state="active"] rect { fill: var(--color-accent-light); stroke: var(--color-accent); stroke-width: 2; }
+.gnode[data-state="active"] text { fill: var(--color-accent); font-weight: 700; }
+.gnode[data-state="active"]      { animation: gnode-glow 1.8s ease-in-out infinite; }
+.gnode[data-state="done"]   rect { fill: var(--color-accent); stroke: var(--color-accent); }
+.gnode[data-state="done"]   text { fill: #fff; font-weight: 600; }
+.gnode[data-state="failed"] rect { fill: var(--color-danger-light); stroke: var(--color-danger); }
+.gnode[data-state="failed"] text { fill: var(--color-danger); }
+.gstart, .gend { fill: var(--color-bg); stroke: var(--color-border); stroke-width: 1.5; }
+.gstart-lbl, .gend-lbl { font-size: 7px; font-family: var(--font-mono); fill: var(--color-text-muted); dominant-baseline: middle; }
+.gedge { fill: none; stroke: var(--color-border); stroke-width: 1.5; transition: stroke .35s; }
+.gedge[data-state="active"] { stroke: var(--color-accent); stroke-width: 2; stroke-dasharray: 6 4; animation: flow-edge .75s linear infinite; }
+.gedge[data-state="done"]   { stroke: var(--color-accent); stroke-dasharray: none; }
+.gedge-loop { stroke-dasharray: 4 3; opacity: .6; }
+.gedge-loop[data-state="active"] { opacity: 1; }
+.gloop-lbl { font-size: 7.5px; font-family: var(--font-mono); fill: var(--color-text-muted); }
+
+/* ── Context hero ── */
+.context-hero {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+.context-hero-text {
+  font-size: .95rem;
+  line-height: 1.6;
+  color: var(--color-text-muted);
+  transition: color .3s;
+}
+.context-hero-text strong { color: var(--color-text); }
+.context-hero.active .context-hero-text { color: var(--color-text); }
+.context-hint {
+  display: none;
+  font-size: .78rem;
+  color: var(--color-text-muted);
+  margin-top: .35rem;
+}
+.context-hero.active .context-hint { display: block; }
+
+/* ── Agent queue ── */
+.agent-queue {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+.queue-label {
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--color-text-muted);
+  padding: .7rem 1.25rem .4rem;
+  flex-shrink: 0;
+}
+.agent-card {
+  display: flex;
+  align-items: flex-start;
+  gap: .6rem;
+  padding: .55rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  transition: background .2s;
+  cursor: pointer;
+  position: relative;
+}
+.agent-card:last-child { border-bottom: none; }
+.agent-card.ac-active {
+  background: var(--color-accent-light);
+  border-left: 3px solid var(--color-accent);
+  padding-left: calc(1.25rem - 3px);
+}
+.agent-card.ac-done { opacity: .6; }
+.agent-card-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--color-border);
+  flex-shrink: 0;
+  margin-top: .35rem;
+  transition: background .25s;
+}
+.ac-active .agent-card-dot { background: var(--color-accent); animation: pulse-ring 1.4s cubic-bezier(.4,0,.6,1) infinite; }
+.ac-done   .agent-card-dot { background: var(--color-accent); animation: none; }
+.agent-card-main { flex: 1; min-width: 0; }
+.agent-card-name {
+  font-weight: 700;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: .8rem;
+}
+.agent-card-role {
+  font-size: .76rem;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+  margin-top: .1rem;
+}
+.agent-card-body {
+  display: none;
+  margin-top: .5rem;
+  padding-top: .5rem;
+  border-top: 1px solid var(--color-border);
+  line-height: 1.55;
+  font-size: .82rem;
+  color: var(--color-text-muted);
+}
+.agent-card.expanded .agent-card-body { display: block; }
+.agent-meta { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .4rem; }
+.agent-tag {
+  display: inline-flex; align-items: center; gap: .25rem;
+  font-size: .72rem; padding: .1rem .4rem;
+  border-radius: 99px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+}
+.agent-tag.llm-yes { border-color: var(--color-accent); color: var(--color-accent); }
+.agent-langgraph {
+  font-size: .73rem; color: var(--color-text-muted); font-family: var(--font-mono);
+  margin-top: .35rem; padding: .25rem .45rem;
+  background: var(--color-bg); border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+.agent-card-dur {
+  font-size: .74rem; font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted); flex-shrink: 0; margin-top: .3rem;
+}
+
+/* ── Step list — hidden in DOM for JS compat ── */
+.step-list { display: none; }
+
+/* ── Steer section ── */
+.steer-section {
+  padding: .85rem 1.25rem;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+  background: var(--color-surface);
+}
+
+/* ── Inputs context (below graph) ── */
+.inputs-context {
+  padding: .65rem .5rem .5rem;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+  margin-top: auto;
+}
+.inputs-intent-text {
+  font-size: .88rem; font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: .4rem;
+  line-height: 1.3;
+}
+.chip { display: inline-flex; align-items: center; gap: .3rem; padding: .18rem .55rem; border-radius: 99px; font-size: .78rem; font-weight: 500; background: var(--color-bg); border: 1px solid var(--color-border); color: var(--color-text-muted); white-space: nowrap; }
+.chip em { font-style: normal; }
+.ck-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
+.text-input { width:100%; padding:.55rem .85rem; border:1px solid var(--color-border); border-radius:var(--radius-sm); font-family:var(--font-sans); font-size:.9rem; background:var(--color-surface); color:var(--color-text); }
+.text-input:focus { outline:2px solid var(--color-accent); outline-offset:1px; }
+</style>
+{% endblock %}
+{% block body %}
+
+<!-- ─── Top bar ── -->
+<div class="cockpit-topbar">
+  <span style="font-weight:700; font-size:.9rem; letter-spacing:.03em; flex-shrink:0;">Planning your day</span>
+  <div class="status-banner" id="status-banner">
+    <span class="status-indicator" id="status-indicator"></span>
+    <span id="status-text">Connecting…</span>
+    <span class="status-elapsed" id="elapsed" style="display:none;"></span>
+  </div>
+  <p style="margin:0; font-size:.8rem; color:var(--color-text-muted); white-space:nowrap; flex-shrink:0;">
+    <a href="#" id="stop-link" style="color:inherit;">Stop</a>
+    &middot;
+    <a href="/" style="color:var(--color-accent);">Start over</a>
+  </p>
+</div>
+
+<!-- Hidden step-list for JS compat -->
+<div class="step-list" id="step-list" style="display:none;"></div>
+
+<div class="cockpit-shell">
+
+  <!-- ─── LEFT: graph + request context ─────────────────────────────── -->
+  <div class="cockpit-left">
+    <div style="font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--color-text-muted); padding:.2rem 0 .5rem;">Graph Execution</div>
+    <svg id="plan-graph" viewBox="10 6 460 434" width="100%" style="overflow:visible; display:block; flex-shrink:0;">
+      <defs>
+        <marker id="arr" markerWidth="7" markerHeight="5" refX="5" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5 z" fill="var(--color-border)" id="arr-path"/></marker>
+        <marker id="arr-a" markerWidth="7" markerHeight="5" refX="5" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5 z" fill="var(--color-accent)"/></marker>
+      </defs>
+      <circle cx="240" cy="14" r="8" class="gstart"/>
+      <text x="240" y="14" text-anchor="middle" class="gstart-lbl">START</text>
+      <path id="ge-start-parse_intent" class="gedge" d="M 240,22 L 240,30" marker-end="url(#arr)"/>
+      <g id="gn-parse_intent" class="gnode" data-state="idle">
+        <rect x="180" y="30" width="120" height="26" rx="13"/>
+        <text x="240" y="47" text-anchor="middle">IntentParser</text>
+      </g>
+      <path id="ge-parse_intent-draft_proposal" class="gedge" d="M 240,56 L 240,92" marker-end="url(#arr)"/>
+      <g id="gn-draft_proposal" class="gnode" data-state="idle">
+        <rect x="178" y="92" width="124" height="26" rx="13"/>
+        <text x="240" y="109" text-anchor="middle">ObjectiveAgent</text>
+      </g>
+      <path id="ge-draft_proposal-review_meteorology" class="gedge" d="M 240,118 C 240,144 90,144 90,158"  marker-end="url(#arr)"/>
+      <path id="ge-draft_proposal-review_family"      class="gedge" d="M 240,118 C 240,144 190,144 190,158" marker-end="url(#arr)"/>
+      <path id="ge-draft_proposal-review_nutrition"   class="gedge" d="M 240,118 C 240,144 290,144 290,158" marker-end="url(#arr)"/>
+      <path id="ge-draft_proposal-review_logistics"   class="gedge" d="M 240,118 C 240,144 390,144 390,158" marker-end="url(#arr)"/>
+      <g id="gn-review_meteorology" class="gnode gnode-sm" data-state="idle">
+        <rect x="44"  y="158" width="92" height="22" rx="11"/>
+        <text x="90"  y="173" text-anchor="middle">Meteorology</text>
+      </g>
+      <g id="gn-review_family" class="gnode gnode-sm" data-state="idle">
+        <rect x="144" y="158" width="92" height="22" rx="11"/>
+        <text x="190" y="173" text-anchor="middle">Family</text>
+      </g>
+      <g id="gn-review_nutrition" class="gnode gnode-sm" data-state="idle">
+        <rect x="244" y="158" width="92" height="22" rx="11"/>
+        <text x="290" y="173" text-anchor="middle">Nutrition</text>
+      </g>
+      <g id="gn-review_logistics" class="gnode gnode-sm" data-state="idle">
+        <rect x="344" y="158" width="92" height="22" rx="11"/>
+        <text x="390" y="173" text-anchor="middle">Logistics</text>
+      </g>
+      <path id="ge-review_meteorology-check_consensus" class="gedge" d="M 90,180  C 90,206  240,206 240,220" marker-end="url(#arr)"/>
+      <path id="ge-review_family-check_consensus"      class="gedge" d="M 190,180 C 190,206 240,206 240,220" marker-end="url(#arr)"/>
+      <path id="ge-review_nutrition-check_consensus"   class="gedge" d="M 290,180 C 290,206 240,206 240,220" marker-end="url(#arr)"/>
+      <path id="ge-review_logistics-check_consensus"   class="gedge" d="M 390,180 C 390,206 240,206 240,220" marker-end="url(#arr)"/>
+      <g id="gn-check_consensus" class="gnode" data-state="idle">
+        <rect x="150" y="220" width="180" height="26" rx="13"/>
+        <text x="240" y="237" text-anchor="middle">OrchestratorAgent</text>
+      </g>
+      <path id="ge-check_consensus-draft_proposal" class="gedge gedge-loop" d="M 150,233 L 18,233 L 18,105 L 178,105" marker-end="url(#arr)"/>
+      <text x="5" y="180" class="gloop-lbl" transform="rotate(-90,5,180)">re-plan</text>
+      <path id="ge-check_consensus-review_safety" class="gedge" d="M 240,246 L 240,272" marker-end="url(#arr)"/>
+      <g id="gn-review_safety" class="gnode" data-state="idle">
+        <rect x="183" y="272" width="114" height="26" rx="13"/>
+        <text x="240" y="289" text-anchor="middle">SafetyAgent</text>
+      </g>
+      <path id="ge-review_safety-synthesize_plan" class="gedge" d="M 240,298 L 240,324" marker-end="url(#arr)"/>
+      <g id="gn-synthesize_plan" class="gnode" data-state="idle">
+        <rect x="160" y="324" width="160" height="26" rx="13"/>
+        <text x="240" y="341" text-anchor="middle">PlanSynthesizer</text>
+      </g>
+      <path id="ge-synthesize_plan-save_plan" class="gedge" d="M 240,350 L 240,376" marker-end="url(#arr)"/>
+      <g id="gn-save_plan" class="gnode" data-state="idle">
+        <rect x="183" y="376" width="114" height="26" rx="13"/>
+        <text x="240" y="393" text-anchor="middle">SavePlanAgent</text>
+      </g>
+      <path id="ge-save_plan-end" class="gedge" d="M 240,402 L 240,424" marker-end="url(#arr)"/>
+      <circle cx="240" cy="432" r="8" class="gend"/>
+      <text x="240" y="432" text-anchor="middle" class="gend-lbl">END</text>
+    </svg>
+
+    <!-- Request context — populated by loadInputsContext() -->
+    <div class="inputs-context" id="inputs-panel" style="display:none;">
+      <div class="inputs-intent-text" id="inputs-intent"></div>
+      <div class="ck-chips" id="inputs-chips"></div>
+    </div>
+  </div>
+
+  <!-- ─── RIGHT: status hero + agent queue + steer ────────────────────── -->
+  <div class="cockpit-right" style="display:flex; flex-direction:column; overflow:hidden;">
+
+    <!-- Status hero -->
+    <div class="context-hero" id="context-box">
+      <div class="context-hero-text" id="context-hero-text">
+        Getting started — this usually takes <strong>1–3 minutes</strong> for a local model.
+      </div>
+      <div class="context-hint">You can add a constraint below — Nexus will factor it in on the next pass.</div>
+    </div>
+
+    <!-- Error area -->
+    <div id="error-area" style="display:none; padding:.75rem 1.25rem; flex-shrink:0;"></div>
+
+    <!-- Agent queue label -->
+    <div class="queue-label">Agent Trace</div>
+
+    <!-- Agent queue — all agents as compact expandable rows -->
+    <div class="agent-queue" id="agent-grid">
+      {% for node in agent_order %}
+      {% set ag = agent_trace[node] %}
+      <div class="agent-card" id="ac-{{ node }}" onclick="toggleCard('{{ node }}')">
+        <div class="agent-card-dot"></div>
+        <div class="agent-card-main">
+          <div style="display:flex; align-items:baseline; gap:.5rem;">
+            <span class="agent-card-name">{{ ag.class }}</span>
+            <span class="agent-card-role">{{ ag.role.split(" — ")[0] }}</span>
+          </div>
+          <div class="agent-card-body">
+            <div class="agent-meta">
+              {% if ag.llm %}
+              <span class="agent-tag llm-yes">🤖 LLM call</span>
+              {% else %}
+              <span class="agent-tag">⚙ No LLM</span>
+              {% endif %}
+              {% for tool in ag.tools %}
+              <span class="agent-tag">🔧 {{ tool }}</span>
+              {% endfor %}
+            </div>
+            <div style="margin-bottom:.35rem; font-size:.82rem;">{{ ag.description }}</div>
+            <div class="agent-langgraph">⟶ {{ ag.langgraph }}</div>
+          </div>
+        </div>
+        <div class="agent-card-dur" id="ad-{{ node }}" style="display:none;"></div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Steer the plan -->
+    <div class="steer-section">
+      <div style="font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--color-text-muted); margin-bottom:.5rem;">Steer the Plan</div>
+      <div style="display:flex; gap:.5rem;">
+        <input class="text-input" id="constraint-input" type="text"
+               placeholder="e.g. no steep climbs, back by 5 pm…"
+               autocomplete="off" style="flex:1; font-size:.88rem; padding:.5rem .75rem;">
+        <button class="btn btn-ghost" id="send-constraint" type="button"
+                style="font-size:.85rem; padding:.45rem .9rem; white-space:nowrap;">Add</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Hidden agent-toggle stub for JS compat -->
+<button id="agent-toggle" style="display:none;"></button>
+
+
+<script>
+const requestId = new URLSearchParams(location.search).get("id");
+let ws;
+const seenEventIds = new Set();
+let _isDone = false;
+
+const _startTime = Date.now();
+let _timerInterval = null;
+const _stepStart = {};
+
+function startTimer() {
+  const el = document.getElementById("elapsed");
+  el.style.display = "";
+  _timerInterval = setInterval(() => {
+    if (_isDone) return;
+    const s = Math.floor((Date.now() - _startTime) / 1000);
+    el.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  }, 500);
+}
+
+function stopTimer(finalLabel) {
+  _isDone = true;
+  if (_timerInterval) clearInterval(_timerInterval);
+  if (finalLabel) document.getElementById("elapsed").textContent = finalLabel;
+}
+
+function setStatus(state, text) {
+  const banner = document.getElementById("status-banner");
+  const ind    = document.getElementById("status-indicator");
+  banner.className = "status-banner " + state;
+  document.getElementById("status-text").textContent = text;
+  ind.className = "status-indicator" + (state === "working" ? " pulsing" : "");
+}
+
+const WAITING_HINT = "<br><span style='display:block;margin-top:.3rem;font-size:.78rem;'>You can add a constraint on the right — Nexus will factor it in on the next pass.</span>";
+
+function setContext(text, active) {
+  const box = document.getElementById("context-box");
+  const textEl = document.getElementById("context-hero-text") || box;
+  textEl.innerHTML = text + (active ? WAITING_HINT : "");
+  if (active) box.classList.add("active"); else box.classList.remove("active");
+}
+
+function ensureRow(id, message) {
+  let row = document.getElementById("sr-" + id);
+  if (row) return row;
+  row = document.createElement("div");
+  row.id = "sr-" + id;
+  row.className = "step-row";
+  row.innerHTML =
+    `<div class="step-ic" id="si-${id}">·</div>` +
+    `<div class="step-label" id="sl-${id}"><span class="step-main">${message}</span></div>` +
+    `<div class="step-dur" id="sd-${id}" style="display:none;"></div>`;
+  document.getElementById("step-list").appendChild(row);
+  return row;
+}
+
+function activateStep(id, message) {
+  _stepStart[id] = Date.now();
+  ensureRow(id, message);
+  const ic = document.getElementById("si-" + id);
+  const lbl = document.getElementById("sl-" + id);
+  ic.className = "step-ic active";
+  ic.innerHTML = '<div class="step-spinner"></div>';
+  lbl.className = "step-label active";
+  lbl.querySelector(".step-main").textContent = message;
+}
+
+function completeStep(id, message) {
+  ensureRow(id, message);
+  const ic  = document.getElementById("si-" + id);
+  const lbl = document.getElementById("sl-" + id);
+  const dur = document.getElementById("sd-" + id);
+  ic.className = "step-ic done";
+  ic.innerHTML = "✓";
+  lbl.className = "step-label";
+  lbl.querySelector(".step-main").textContent = message;
+  if (dur && _stepStart[id]) {
+    const s = Math.round((Date.now() - _stepStart[id]) / 1000);
+    if (s > 0) { dur.textContent = s + "s"; dur.style.display = ""; }
+  }
+}
+
+function failStep(id, message) {
+  ensureRow(id, message);
+  const ic  = document.getElementById("si-" + id);
+  const lbl = document.getElementById("sl-" + id);
+  ic.className = "step-ic failed";
+  ic.innerHTML = "✕";
+  lbl.className = "step-label failed";
+  lbl.querySelector(".step-main").textContent = message;
+  graphFail(id);
+}
+
+function toggleAgentTrace() {
+  const btn  = document.getElementById("agent-toggle");
+  const grid = document.getElementById("agent-grid");
+  const open = grid.classList.toggle("visible");
+  btn.classList.toggle("open", open);
+}
+
+function toggleCard(node) {
+  document.getElementById("ac-" + node).classList.toggle("expanded");
+}
+
+const _GRAPH_IN = {
+  parse_intent:        ["ge-start-parse_intent"],
+  draft_proposal:      ["ge-parse_intent-draft_proposal", "ge-check_consensus-draft_proposal"],
+  review_meteorology:  ["ge-draft_proposal-review_meteorology"],
+  review_family:       ["ge-draft_proposal-review_family"],
+  review_nutrition:    ["ge-draft_proposal-review_nutrition"],
+  review_logistics:    ["ge-draft_proposal-review_logistics"],
+  check_consensus:     ["ge-review_meteorology-check_consensus", "ge-review_family-check_consensus", "ge-review_nutrition-check_consensus", "ge-review_logistics-check_consensus"],
+  review_safety:       ["ge-check_consensus-review_safety"],
+  synthesize_plan:     ["ge-review_safety-synthesize_plan"],
+  save_plan:           ["ge-synthesize_plan-save_plan"],
+};
+
+function _setEdgesState(node, state) {
+  const arrId = state === "active" ? "url(#arr-a)" : "url(#arr)";
+  (_GRAPH_IN[node] || []).forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.setAttribute("data-state", state);
+    el.setAttribute("marker-end", state === "idle" ? "url(#arr)" : arrId);
+  });
+}
+
+function graphActivate(node) {
+  const gn = document.getElementById("gn-" + node);
+  if (gn) gn.setAttribute("data-state", "active");
+  _setEdgesState(node, "active");
+}
+function graphComplete(node) {
+  const gn = document.getElementById("gn-" + node);
+  if (gn) gn.setAttribute("data-state", "done");
+  _setEdgesState(node, "done");
+}
+function graphFail(node) {
+  const gn = document.getElementById("gn-" + node);
+  if (gn) gn.setAttribute("data-state", "failed");
+  _setEdgesState(node, "idle");
+}
+
+let _traceAutoOpened = false;
+function agentActivate(node) {
+  const card = document.getElementById("ac-" + node);
+  if (!card) return;
+  if (!_traceAutoOpened) {
+    _traceAutoOpened = true;
+    document.getElementById("agent-grid").classList.add("visible");
+    document.getElementById("agent-toggle").classList.add("open");
+  }
+  card.classList.add("ac-active");
+  card.classList.add("expanded");
+  card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  graphActivate(node);
+}
+
+function agentComplete(node) {
+  const card = document.getElementById("ac-" + node);
+  if (!card) return;
+  card.classList.remove("ac-active");
+  card.classList.add("ac-done");
+  card.classList.remove("expanded");
+  graphComplete(node);
+}
+
+function connectWs() {
+  ws = new WebSocket("ws://" + location.hostname + ":{{ port }}/ws/plans/" + encodeURIComponent(requestId));
+  ws.onopen  = () => { setStatus("working", "Nexus is working…"); startTimer(); };
+  ws.onclose = () => { if (!_isDone) { setStatus("working", "Reconnecting…"); setTimeout(connectWs, 1500); } };
+  ws.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+    if (seenEventIds.has(ev.event_id)) return;
+    seenEventIds.add(ev.event_id);
+    handleEvent(ev);
+  };
+}
+
+function handleEvent(ev) {
+  if (ev.event === "phase_changed") {
+    if (ev.status === "active") {
+      activateStep(ev.phase, ev.message);
+      setStatus("working", ev.message.replace(/…$|\.\.\.$/,"") + "…");
+      if (ev.context) setContext(ev.context, true);
+      agentActivate(ev.phase);
+    } else if (ev.status === "complete") {
+      completeStep(ev.phase, ev.message);
+      agentComplete(ev.phase);
+    }
+  }
+  if (ev.event === "plan_ready") {
+    stopTimer();
+    setStatus("done", "Your plan is ready! Redirecting…");
+    document.getElementById("context-box").classList.remove("active");
+    (document.getElementById("context-hero-text") || document.getElementById("context-box")).innerHTML = "✓ Planning complete. Taking you to your plan now…";
+    setTimeout(() => { location.href = "/plans/" + encodeURIComponent(requestId); }, 1200);
+  }
+  if (ev.event === "error") {
+    stopTimer();
+    setStatus("error", "Planning stopped");
+    const isSystem = ev.message && /ollama|model|connect|timeout/i.test(ev.message);
+    const ea = document.getElementById("error-area");
+    ea.style.display = "";
+    ea.innerHTML =
+      `<div style="display:flex;gap:.6rem;align-items:flex-start;color:var(--color-danger);font-size:.9rem;">` +
+        `<span style="font-size:1rem;margin-top:.1rem;">✕</span>` +
+        `<span>${ev.message}</span>` +
+      `</div>` +
+      (isSystem
+        ? `<a href="/preflight" class="btn btn-ghost" style="margin-top:.75rem;font-size:.85rem;">Check system status →</a>`
+        : `<p style="font-size:.84rem;margin-top:.5rem;"><a href="/">Try a different request →</a></p>`);
+    document.getElementById("context-box").classList.remove("active");
+    (document.getElementById("context-hero-text") || document.getElementById("context-box")).innerHTML =
+      "Planning couldn't finish. " +
+      (isSystem ? "Check that Ollama is running: <code>ollama serve</code>" : "Try rephrasing your request or start over.");
+  }
+}
+
+document.getElementById("send-constraint").addEventListener("click", () => {
+  const text = document.getElementById("constraint-input").value.trim();
+  if (!text) return;
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: "add_constraint", text }));
+  } else {
+    fetch("/api/plans/" + encodeURIComponent(requestId) + "/constraint", {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ constraint: text })
+    });
+  }
+  document.getElementById("constraint-input").value = "";
+  const btn = document.getElementById("send-constraint");
+  const orig = btn.textContent;
+  btn.textContent = "Added ✓";
+  btn.disabled = true;
+  setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1800);
+});
+
+document.getElementById("constraint-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("send-constraint").click();
+});
+
+document.getElementById("stop-link").addEventListener("click", (e) => {
+  e.preventDefault();
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "stop_planning" }));
+  stopTimer();
+  setTimeout(() => location.href = "/", 500);
+});
+
+if (requestId) connectWs();
+
+async function loadInputsContext() {
+  try {
+    const r = await fetch("/api/plans/" + encodeURIComponent(requestId) + "/context");
+    if (!r.ok) return;
+    const ctx = await r.json();
+    renderInputsPanel(ctx);
+  } catch (_) {}
+}
+
+function renderInputsPanel(ctx) {
+  document.getElementById("inputs-intent").textContent = ctx.intent;
+  const chips = [];
+  chips.push({ icon: "📅", label: ctx.target_date });
+  if (ctx.home_area) chips.push({ icon: "📍", label: ctx.home_area });
+  if (ctx.fitness_level) chips.push({ icon: "🏃", label: ctx.fitness_level });
+  if (ctx.max_driving_minutes) chips.push({ icon: "🚗", label: "Up to " + ctx.max_driving_minutes + " min drive" });
+  if (ctx.dietary_restrictions && ctx.dietary_restrictions.length) {
+    chips.push({ icon: "🥗", label: ctx.dietary_restrictions.join(", ") });
+  }
+  if (ctx.family_members && ctx.family_members.length) {
+    const names = ctx.family_members.map(m => m.name + " (" + m.age + ")").join(", ");
+    chips.push({ icon: "👨‍👩‍👧", label: names });
+  }
+  const container = document.getElementById("inputs-chips");
+  container.innerHTML = chips.map(c =>
+    `<span class="chip"><em>${c.icon}</em>${c.label}</span>`
+  ).join("");
+  document.getElementById("inputs-panel").style.display = "";
+}
+
+if (requestId) loadInputsContext();
+</script>
+{% endblock %}

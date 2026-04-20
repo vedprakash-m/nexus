@@ -1,0 +1,12 @@
+{
+  "latitude": 37.7749,
+  "longitude": -122.4194,
+  "utc_offset_seconds": -25200,
+  "timezone": "America/Los_Angeles",
+  "daily": {
+    "time": ["2026-04-19"],
+    "precipitation_probability_max": [15],
+    "temperature_2m_max": [18.5],
+    "weathercode": [1]
+  }
+}

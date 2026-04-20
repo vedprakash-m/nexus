@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# uv
+.uv/
+
+# Environment
+.env
+*.env
+
+# Nexus runtime data
+~/.nexus/
+.nexus/
+
+# Databases & caches
+*.db
+*.sqlite
+*.sqlite3
+.cache/
+.ruff_cache/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Pyright
+pyrightconfig.json.bak

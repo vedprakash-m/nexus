@@ -1,0 +1,10 @@
+{
+  "latitude": 37.7749,
+  "longitude": -122.4194,
+  "utc_offset_seconds": -25200,
+  "daily": {
+    "time": ["2026-04-19"],
+    "sunrise": ["2026-04-19T06:30"],
+    "sunset": ["2026-04-19T19:50"]
+  }
+}

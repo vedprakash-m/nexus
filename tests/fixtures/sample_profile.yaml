@@ -1,0 +1,56 @@
+user:
+  name: "Alex"
+  fitness_level: "advanced"
+  dietary_restrictions:
+    - "vegetarian"
+  protein_target_g: 40
+  max_driving_minutes: 90
+  max_restaurant_radius_miles: 10.0
+  home_coordinates: [37.7749, -122.4194]
+  preferred_activities:
+    - "hiking"
+    - "biking"
+
+family:
+  vehicle_count: 1
+  max_total_driving_minutes: 180
+  members:
+    - name: "Sarah"
+      age: 42
+      interests: ["reading", "cafes", "moderate walking"]
+      comfort_distance_miles: 3.0
+      requires_cell_service: false
+    - name: "Emma"
+      age: 17
+      interests: ["photography", "music", "social media"]
+      comfort_distance_miles: 2.0
+      requires_cell_service: true
+    - name: "Jake"
+      age: 12
+      interests: ["video games", "swimming", "adventure"]
+      comfort_distance_miles: 4.0
+      requires_cell_service: false
+
+models:
+  local_model: "qwen3.5:9b"
+  cloud_agents:
+    enabled: false
+    model: "qwen3.5:cloud"
+    agents: []
+
+ollama:
+  base_url: "http://localhost:11434"
+
+tools:
+  providers:
+    weather: "open_meteo"
+    activity: "overpass"
+    places: "yelp"
+    routing: "osrm"
+
+planning:
+  max_iterations: 3
+  default_search_radius_miles: 50.0
+  precipitation_threshold_pct: 40
+  aqi_threshold: 100
+  min_sunset_buffer_minutes: 30

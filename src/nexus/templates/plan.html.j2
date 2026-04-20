@@ -1,0 +1,412 @@
+{% extends "base.html.j2" %}
+{% block title %}Nexus{% if plan %} — {{ plan.activity_name }}{% endif %}{% endblock %}
+{% block body_class %}cockpit{% endblock %}
+
+{% block head %}
+<style>
+.plan-editorial {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.75rem 1.5rem 2rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.plan-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem .75rem;
+  font-size: .88rem;
+  color: var(--color-text-muted);
+  margin-bottom: .85rem;
+}
+.plan-meta-line span { display: flex; align-items: center; gap: .3rem; }
+.plan-verdict-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-bottom: 1.25rem;
+}
+.plan-section { margin-bottom: 1.5rem; }
+.plan-section-label {
+  font-size: .68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--color-text-muted);
+  margin-bottom: .5rem;
+}
+.plan-hr { border: none; border-top: 1px solid var(--color-border); margin: 1.25rem 0; }
+</style>
+{% endblock %}
+
+{% block body %}
+{% if plan %}
+
+{% if plan.get('is_unsafe', false) %}
+<!-- ── Unsafe plan ─────────────────────────────────────────────────────── -->
+<div class="cockpit-topbar">
+  <a href="/" style="color:var(--color-text-muted); font-size:.85rem;">← Nexus</a>
+  <span style="flex:1;"></span>
+</div>
+<div style="max-width:640px; margin:2rem auto; padding:0 1.25rem;">
+  <h1 style="color:var(--color-danger);">Not safe this weekend</h1>
+  <div class="card">
+    <p style="color:var(--color-text); font-weight:600; margin:0 0 .75rem;">
+      We couldn't find a plan that clears all safety checks for
+      {{ plan.target_date | default("this weekend") }}.
+    </p>
+    {% if plan.blocking_reasons %}
+    <ul style="padding-left:1.25rem; margin:.5rem 0; color:var(--color-text);">
+      {% for reason in plan.blocking_reasons %}
+      <li>{{ reason }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% if plan.downscaled_alternative %}
+  <div class="card">
+    <h2>A scaled-back option</h2>
+    <p style="color:var(--color-text);">{{ plan.downscaled_alternative }}</p>
+  </div>
+  {% endif %}
+  {% if plan.next_weekend_forecast %}
+  <div class="card">
+    <h2>Next weekend looks like</h2>
+    <p style="color:var(--color-text);">{{ plan.next_weekend_forecast }}</p>
+  </div>
+  {% endif %}
+  <div style="display:flex; gap:.75rem; margin-top:1.5rem; flex-wrap:wrap;">
+    {% if plan.downscaled_alternative %}
+    <button class="btn btn-primary"
+            onclick="window.location.href='/?intent=' + encodeURIComponent('{{ plan.downscaled_alternative }}')">
+      PLAN THE SCALED-BACK OPTION
+    </button>
+    {% endif %}
+    <a href="/" class="btn btn-ghost">SKIP THIS WEEK</a>
+  </div>
+</div>
+
+{% else %}
+<!-- ── Normal plan — editorial layout ───────────────────────────────────── -->
+
+<!-- Top bar -->
+<div class="cockpit-topbar">
+  <a href="/" style="font-size:.82rem; color:var(--color-text-muted); flex-shrink:0;">← Nexus</a>
+  <strong style="font-size:.92rem; letter-spacing:-.01em;">{{ plan.target_date | default("This Weekend") }}</strong>
+  <span style="flex:1;"></span>
+  {% if confidence_labels %}
+  <span style="font-size:.72rem; color:var(--color-text-muted);">
+    {% for label in confidence_labels %}
+    <span class="confidence-label {{ label.type }}">{{ label.text }}</span>{% if not loop.last %}, {% endif %}
+    {% endfor %}
+  </span>
+  {% endif %}
+</div>
+
+<!-- Editorial column -->
+<div class="plan-editorial">
+
+  <!-- Title -->
+  <h1 style="font-size:2rem; letter-spacing:-.03em; margin-bottom:.6rem; line-height:1.2;">
+    {{ plan.activity_name }}
+  </h1>
+
+  <!-- Meta line -->
+  <div class="plan-meta-line stats-bar">
+    {% if plan.estimated_duration_hours %}
+    <span>⏱ <strong>{{ plan.estimated_duration_hours | round(1) }}h</strong> activity</span>
+    {% endif %}
+    {% if plan.start_time %}
+    <span>🕗 <strong>{{ plan.start_time }}</strong> start</span>
+    {% endif %}
+    {% if plan.weather_summary %}
+    <span>🌤 {{ plan.weather_summary }}</span>
+    {% endif %}
+    {% if plan.driving_summary %}
+    <span>🚗 {{ plan.driving_summary }} drive</span>
+    {% endif %}
+  </div>
+
+  <!-- Verdict row -->
+  <div class="plan-verdict-row verdict-strip">
+    <span class="verdict-tag {{ 'green' if plan.weather_ok else 'red' }}">
+      {{ "✓ Good conditions" if plan.weather_ok else "⚠ Weather concern" }}
+    </span>
+    <span class="verdict-tag {{ 'green' if plan.family_ok else 'amber' }}">
+      {{ "✓ Works for everyone" if plan.family_ok else "~ Some tradeoffs" }}
+    </span>
+    <span class="verdict-tag {{ 'green' if plan.route_ok else 'amber' }}">
+      {{ "✓ Easy drive" if plan.route_ok else "~ Longer drive" }}
+    </span>
+  </div>
+
+  <hr class="plan-hr">
+
+  <!-- Why this plan -->
+  {% if plan.why_this_plan %}
+  <div class="plan-section">
+    <div class="plan-section-label">Why This Plan</div>
+    <p style="color:var(--color-text); margin:0; line-height:1.7; font-size:.95rem;">{{ plan.why_this_plan }}</p>
+    {% if plan.tradeoff_summary %}
+    <p style="margin-top:.65rem; font-size:.85rem; color:var(--color-text-muted);">
+      {% if plan.get('is_compromised', false) %}What we couldn't do:{% else %}One thing we traded:{% endif %}
+      {{ plan.tradeoff_summary }}
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Day narrative -->
+  {% if plan.day_narrative %}
+  <div class="plan-section">
+    <div class="plan-section-label">Your Day</div>
+    <p style="color:var(--color-text); margin:0; line-height:1.75; font-size:.95rem;">{{ plan.day_narrative }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Timeline -->
+  {% if plan.timeline %}
+  <div class="plan-section">
+    <div class="plan-section-label">Day at a Glance</div>
+    <div class="timeline">
+      {% for item in plan.timeline %}
+      <div class="timeline-item">
+        <div class="timeline-time">{{ item.time }}</div>
+        <div>{{ item.label }}
+          {% if item.who %}<span style="font-size:.82rem; color:var(--color-text-muted);"> · {{ item.who }}</span>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Checklist -->
+  {% if plan.preparation_checklist %}
+  <div class="plan-section">
+    <div class="plan-section-label">Before you go</div>
+    <ul style="padding-left:1.15rem; margin:0; font-size:.9rem; line-height:1.9; color:var(--color-text);">
+      {% for item in plan.preparation_checklist %}
+      <li>{{ item }}</li>
+      {% endfor %}
+    </ul>
+    {% if plan.emergency_info %}
+    <p style="margin-top:.65rem; font-size:.78rem; color:var(--color-text-muted);">Emergency: {{ plan.emergency_info }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Restaurant / Lunch -->
+  {% if plan.get('meal_plan') or plan.get('restaurant') %}
+  {% set r = plan.get('meal_plan') or plan.get('restaurant') %}
+  <div class="plan-section">
+    <div class="plan-section-label">Lunch</div>
+    <div style="border:1px solid var(--color-border); border-radius:var(--radius-md); padding:.85rem 1rem;">
+      <div style="font-weight:700; font-size:.92rem; margin-bottom:.3rem;">{{ r.name }}</div>
+      <div style="font-size:.82rem; color:var(--color-text-muted); line-height:1.6;">
+        {% if r.cuisine_type %}{{ r.cuisine_type }}{% endif %}
+        {% if r.price_range %} · {{ r.price_range }}{% endif %}
+        {% if r.google_rating %} · {{ r.google_rating }}★{% endif %}
+        {% if r.distance_miles %} · {{ r.distance_miles | round(1) }} mi{% endif %}
+      </div>
+      {% if r.address %}
+      <div style="font-size:.75rem; color:var(--color-text-muted); margin-top:.2rem;">{{ r.address }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Backup -->
+  {% if plan.backup_activity %}
+  <div class="plan-section">
+    <div class="plan-section-label">Backup Option</div>
+    <div style="font-weight:600; font-size:.9rem; color:var(--color-text);">{{ plan.backup_activity.activity_name }}</div>
+    {% if plan.backup_summary %}
+    <div style="font-size:.82rem; color:var(--color-text-muted); margin-top:.25rem;">{{ plan.backup_summary }}</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- ── Hidden interactive panels ── -->
+
+  <!-- Trust score panel (shown after approve) -->
+  <div id="trust-score-panel" style="display:none; margin-bottom:1rem;">
+    <p style="margin:0 0 .5rem; font-weight:600; font-size:.88rem;">How confident are you in this plan?</p>
+    <div style="display:flex; gap:.35rem; font-size:1.4rem;">
+      {% for i in range(1, 6) %}
+      <button class="trust-star" data-score="{{ i }}"
+              style="background:none; border:none; cursor:pointer; color:var(--color-accent);"
+              aria-label="{{ i }} star">☆</button>
+      {% endfor %}
+    </div>
+    <button class="btn btn-ghost" style="margin-top:.4rem; font-size:.78rem; padding:.3rem .7rem;"
+            onclick="document.getElementById('trust-score-panel').style.display='none'">Skip</button>
+  </div>
+
+  <!-- Feedback panel (shown after approve) -->
+  <div id="feedback-panel" style="display:none; margin-bottom:1rem;">
+    <div class="plan-section-label">After Your Trip</div>
+    <div style="display:flex; flex-wrap:wrap; gap:.4rem; margin:.5rem 0; font-size:.84rem;">
+      {% for label in ["Great!", "Good", "Had to change things", "Didn't go"] %}
+      <label style="cursor:pointer;"><input type="radio" name="feedback_how" value="{{ label }}"> {{ label }}</label>
+      {% endfor %}
+    </div>
+    <textarea class="text-input" id="feedback-notes" rows="2"
+              placeholder="Anything to note?" style="margin-top:.4rem; font-size:.85rem;"></textarea>
+    <button class="btn btn-primary" style="margin-top:.5rem; font-size:.85rem; padding:.45rem .9rem;"
+            id="btn-feedback">Send feedback</button>
+  </div>
+
+  <!-- Reject panel (shown after NOT THIS) -->
+  <div id="reject-panel" style="display:none; margin-top:.5rem;">
+    <label style="display:block; font-weight:600; font-size:.88rem;">What didn't work?
+      <textarea class="text-input" id="reject-reason" rows="3"
+                style="margin-top:.35rem; font-size:.85rem;"
+                placeholder="e.g. too far, I'd prefer something coastal…"
+                required></textarea>
+    </label>
+    <div style="display:flex; gap:.6rem; margin-top:.6rem; flex-wrap:wrap;">
+      <button class="btn btn-danger" id="btn-replan" disabled
+              style="font-size:.85rem; padding:.45rem .9rem;">REPLAN</button>
+      <button class="btn btn-ghost" id="btn-cancel-reject"
+              style="font-size:.85rem; padding:.45rem .9rem;">Cancel</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Bottom bar -->
+<div class="cockpit-bottombar">
+  <button class="btn btn-primary" id="btn-approve" style="padding:.6rem 1.4rem;">
+    ✓ APPROVE THIS PLAN
+  </button>
+  <button class="btn btn-danger" id="btn-reject" style="padding:.6rem 1.2rem;">
+    ✕ NOT THIS
+  </button>
+  <span style="flex:1;"></span>
+  <a href="/" style="font-size:.8rem; color:var(--color-text-muted);">← Nexus</a>
+</div>
+<script>
+const requestId = "{{ request_id }}";
+
+document.getElementById("btn-approve")?.addEventListener("click", async () => {
+  const r = await fetch("/api/plans/" + requestId + "/approve", { method: "POST" });
+  if (r.ok) {
+    document.getElementById("btn-approve").textContent = "✔ Saved to your plans";
+    document.getElementById("btn-approve").disabled = true;
+    document.getElementById("btn-reject").style.display = "none";
+    document.getElementById("feedback-panel").style.display = "";
+    document.getElementById("trust-score-panel").style.display = "";
+  }
+});
+
+document.getElementById("btn-reject")?.addEventListener("click", () => {
+  document.getElementById("reject-panel").style.display = "";
+  document.getElementById("btn-approve").style.display = "none";
+  document.getElementById("btn-reject").style.display = "none";
+});
+
+document.getElementById("btn-cancel-reject")?.addEventListener("click", () => {
+  document.getElementById("reject-panel").style.display = "none";
+  document.getElementById("btn-approve").style.display = "";
+  document.getElementById("btn-reject").style.display = "";
+});
+
+const rejectReason = document.getElementById("reject-reason");
+const btnReplan = document.getElementById("btn-replan");
+rejectReason?.addEventListener("input", () => {
+  btnReplan.disabled = rejectReason.value.trim().length === 0;
+});
+
+document.getElementById("btn-replan")?.addEventListener("click", async () => {
+  const reason = rejectReason.value.trim();
+  const r = await fetch("/api/plans/" + requestId + "/reject", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ reason })
+  });
+  if (r.ok) {
+    const data = await r.json();
+    if (data.suggest_manual) {
+      document.getElementById("reject-panel").innerHTML =
+        "<p style='color:var(--color-danger);'>" + (data.message || "Planning limit reached — try planning manually.") + "</p>";
+    } else if (data.offer_anyway) {
+      document.getElementById("reject-panel").innerHTML =
+        "<p style='font-weight:600; margin-bottom:.75rem;'>" + (data.hint || "You've given the same feedback before. Accept the existing plan?") + "</p>" +
+        "<div style='display:flex; gap:.75rem;'>" +
+        "<button class='btn btn-primary' onclick='acceptExistingPlan()'>KEEP THIS PLAN</button>" +
+        "<button class='btn btn-ghost' onclick='replanAnyway()'>REPLAN ANYWAY</button>" +
+        "</div>";
+    } else {
+      window.location.href = "/plan?id=" + encodeURIComponent(requestId);
+    }
+  }
+});
+
+document.getElementById("btn-feedback")?.addEventListener("click", async () => {
+  const how = document.querySelector("input[name='feedback_how']:checked")?.value || "";
+  const notes = document.getElementById("feedback-notes").value.trim();
+  const feedback = [how, notes].filter(Boolean).join(" — ");
+  if (!feedback) { alert("Please select a rating or add a note before sending."); return; }
+  await fetch("/api/plans/" + requestId + "/feedback", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ feedback })
+  });
+  document.getElementById("feedback-panel").innerHTML = "<p style='font-size:.85rem;'>Thanks — we'll use that next time.</p>";
+});
+
+document.querySelectorAll(".trust-star").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const score = parseInt(btn.dataset.score, 10);
+    document.querySelectorAll(".trust-star").forEach((b, i) => {
+      b.textContent = i < score ? "★" : "☆";
+    });
+    const r = await fetch("/api/plans/" + requestId + "/trust-score", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ score })
+    });
+    if (r.ok) {
+      document.getElementById("trust-score-panel").innerHTML =
+        "<p style='font-size:.82rem;color:var(--color-text-muted);'>Thanks for the rating.</p>";
+    }
+  });
+});
+
+function acceptExistingPlan() {
+  document.getElementById("reject-panel").style.display = "none";
+  document.getElementById("btn-approve").style.display = "";
+  document.getElementById("btn-reject").style.display = "";
+  document.getElementById("btn-approve").click();
+}
+
+async function replanAnyway() {
+  const reason = document.getElementById("reject-reason")?.value.trim() || "Replan requested";
+  const r = await fetch("/api/plans/" + requestId + "/reject", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ reason, force: true })
+  });
+  if (r.ok) {
+    window.location.href = "/plan?id=" + encodeURIComponent(requestId);
+  }
+}
+</script>
+
+{% endif %}{# end is_unsafe #}
+
+{% else %}
+<!-- ── No plan ─────────────────────────────────────────────────────────── -->
+<div class="cockpit-topbar">
+  <a href="/" style="font-size:.82rem; color:var(--color-text-muted);">← Nexus</a>
+</div>
+<div style="display:flex; align-items:center; justify-content:center; height:100%; flex:1;">
+  <div style="text-align:center; color:var(--color-text-muted);">
+    <p style="margin-bottom:1rem;">Plan not found or still in progress.</p>
+    <a href="/" class="btn btn-ghost">← Back to Nexus</a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
