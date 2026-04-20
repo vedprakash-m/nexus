@@ -102,6 +102,7 @@ async def objective_draft_proposal(state: WeekendPlanState) -> dict:
         home,
         requirements.search_radius_miles,
         requirements.activity_types,
+        fitness_level=user.fitness_level if user else "intermediate",
     )
 
     proposal_history = state.get("proposal_history", [])
@@ -131,7 +132,8 @@ async def objective_draft_proposal(state: WeekendPlanState) -> dict:
         requirements=f"activity={requirements.activity_types}, "
                      f"family_friendly={requirements.family_friendly}, "
                      f"max_hrs={requirements.max_activity_hours}, "
-                     f"cell={requirements.require_cell_coverage}",
+                     f"cell={requirements.require_cell_coverage}, "
+                     f"fitness={user.fitness_level if user else 'intermediate'}",
         candidates=candidates_text,
         rejection_history=rejection_context or "None",
         previous_proposals=", ".join(previous_proposals) if previous_proposals else "None",

@@ -42,6 +42,11 @@ ALREADY TRIED (skip these): {previous_proposals}
 CANDIDATES (index: name | type | difficulty | distance):
 {candidates}
 
+Rules:
+- If fitness=advanced or fitness=intermediate, strongly prefer hard or moderate trails over easy ones.
+- Never choose an easy recreational park (Marymoor, Lake Sammamish State Park, Bridle Trails) when harder options are available.
+- Match the fitness level to difficulty: beginner→easy, intermediate→moderate, advanced→hard.
+
 Return: {{"choice_index": <0-based integer>, "start_hour": <6-22 integer>}}
 """
 
