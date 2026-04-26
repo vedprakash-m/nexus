@@ -799,6 +799,7 @@ async def setup_profile(request: Request, body: SetupRequest) -> dict:
             "marginal_weather_precip_pct": body.marginal_weather_precip_pct,
             "hospital_search_radius_miles": body.hospital_search_radius_miles,
             "max_candidate_activities": body.max_candidate_activities,
+            "include_meal": body.include_meal,
         },
     }
 

@@ -808,10 +808,22 @@ class OverpassActivities:
             return static_results, static_source
 
         async def _fetcher() -> list[ActivityResult]:
+            import httpx as _httpx
+
+            # Re-check circuit breaker before each attempt: it may have been
+            # opened by a concurrent request or by the previous retry within
+            # this same fetch_with_fallback call.  Raising ConnectError is
+            # classified as terminal by _is_terminal_error → no more retries.
+            if self._cache is not None and self._cache.get(_OVERPASS_COOLDOWN_KEY):
+                raise _httpx.ConnectError("Overpass circuit-breaker open")
             results = await self._live_fetch(
                 coordinates, radius_miles, activity_types, fitness_level
             )
             if not results:
+                # _live_fetch exhausted all mirrors; if that opened the breaker
+                # treat it as terminal so we don't retry the same dead endpoints.
+                if self._cache is not None and self._cache.get(_OVERPASS_COOLDOWN_KEY):
+                    raise _httpx.ConnectError("Overpass circuit-breaker open after failures")
                 raise RuntimeError("Overpass returned 0 named results")
             return results
 

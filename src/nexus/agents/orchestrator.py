@@ -97,6 +97,24 @@ def _requirements_from_profile(state: WeekendPlanState, raw: dict) -> PlanRequir
         getattr(m, "requires_cell_service", False) for m in (family.members if family else [])
     )
 
+    # Keyword fallback for include_meal: detect "pack", "bring food", "no restaurant", etc.
+    _no_meal_keywords = (
+        "pack",
+        "bring food",
+        "bring lunch",
+        "bring snacks",
+        "no restaurant",
+        "no meal",
+        "skip meal",
+        "skip restaurant",
+        "own food",
+        "packed lunch",
+        "packed food",
+    )
+    _llm_include_meal = _bool("include_meal", True)
+    if _llm_include_meal and any(kw in intent_lower for kw in _no_meal_keywords):
+        _llm_include_meal = False
+
     return PlanRequirements(
         activity_types=raw.get("activity_types", ["outdoor"]),
         target_date=raw.get("target_date"),  # PlanRequirements accepts None
@@ -106,6 +124,7 @@ def _requirements_from_profile(state: WeekendPlanState, raw: dict) -> PlanRequir
         family_friendly=_bool("family_friendly", family_has_members),
         dietary_requirements=raw.get("dietary_requirements")
         or (user.dietary_restrictions if user else []),
+        include_meal=_llm_include_meal,
         require_cell_coverage=_bool("require_cell_coverage", req_cell),
         max_activity_hours=_float("max_activity_hours", 8.0),
         search_radius_miles=default_radius,

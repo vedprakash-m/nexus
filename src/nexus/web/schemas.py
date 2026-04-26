@@ -55,6 +55,7 @@ class SetupRequest(BaseModel):
     marginal_weather_precip_pct: int = 30
     hospital_search_radius_miles: float = 30.0
     max_candidate_activities: int = 20
+    include_meal: bool = True
 
 
 class ApiKeyRequest(BaseModel):

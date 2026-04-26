@@ -27,7 +27,9 @@ FITNESS: {fitness_level} | DIET: {dietary_restrictions} | MAX DRIVE: {max_drivin
 FAMILY: {family_summary}
 
 JSON fields (use null where unknown):
-{{"activity_types":[],"target_date":null,"max_distance_miles":50.0,"min_elevation_gain_ft":0,"must_have_cell_coverage":false,"family_friendly":true,"dietary_requirements":[],"require_cell_coverage":false,"max_activity_hours":8.0,"search_radius_miles":50.0}}
+{{"activity_types":[],"target_date":null,"max_distance_miles":50.0,"min_elevation_gain_ft":0,"must_have_cell_coverage":false,"family_friendly":true,"dietary_requirements":[],"include_meal":true,"require_cell_coverage":false,"max_activity_hours":8.0,"search_radius_miles":50.0}}
+
+Set include_meal to false when the user explicitly says they will pack food, bring lunch, skip the restaurant, or any variation of not eating out.
 """
 
 # ─────────────────────────────────────────────────────────────────────────────

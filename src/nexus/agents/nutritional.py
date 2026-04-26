@@ -62,6 +62,29 @@ async def nutritional_review(state: WeekendPlanState) -> dict:
         else RESTAURANT_SEARCH_RADIUS_MILES
     )
 
+    # ── Skip restaurant search when meal is not wanted ────────────────────
+    # Per-request intent takes precedence; config-level default is the fallback.
+    _config_include_meal = (
+        _config.planning.include_meal if isinstance(_config, NexusConfig) else True
+    )
+    requirements = state.get("plan_requirements")
+    _include_meal = getattr(requirements, "include_meal", _config_include_meal)
+
+    if not _include_meal:
+        return {
+            "current_verdicts": [
+                AgentVerdict(
+                    agent_name="nutritional",
+                    verdict="APPROVED",
+                    is_hard_constraint=True,
+                    confidence=1.0,
+                    details={"reason": "Meal skipped — packed food / no restaurant requested"},
+                )
+            ],
+            "meal_plan": None,
+            "negotiation_log": ["nutritional: APPROVED — meal skipped (packed food)"],
+        }
+
     # ── Search restaurants near endpoint ──────────────────────────────────
     restaurants = await registry.places.search_restaurants(
         proposal.endpoint_coordinates,

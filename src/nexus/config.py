@@ -75,6 +75,9 @@ class PlanningConfig(BaseModel):
     # Number of activity candidates shown to the LLM for ranking. More = more variety
     # but slightly slower (LLM reads the list). 20 is a good balance.
     max_candidate_activities: int = 20
+    # Set False to skip restaurant search by default (useful for hike-only trips where
+    # you always pack food). Can still be overridden per-request via intent phrasing.
+    include_meal: bool = True
 
 
 class PathsConfig(BaseModel):

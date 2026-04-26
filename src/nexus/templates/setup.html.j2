@@ -377,6 +377,16 @@
           <span class="hint">Search radius from the activity location</span>
         </div>
       </div>
+      <div class="fg fg-2" style="margin-top:1rem">
+        <div class="toggle-field">
+          <input type="checkbox" name="include_meal"
+                 {% if not profile or not profile.planning or profile.planning.include_meal %}checked{% endif %}>
+          <div class="tl">
+            <span>Include restaurant in plan</span>
+            <small>Uncheck for hike-only trips where you always pack your own food</small>
+          </div>
+        </div>
+      </div>
     </div>
 
   </div><!-- /.setup-panels -->
@@ -434,6 +444,7 @@ document.getElementById("setup-form").addEventListener("submit", async (e) => {
     marginal_weather_precip_pct: parseInt(fd.get("marginal_weather_precip_pct")),
     hospital_search_radius_miles: parseFloat(fd.get("hospital_search_radius_miles")),
     max_candidate_activities: parseInt(fd.get("max_candidate_activities")),
+    include_meal: fd.get("include_meal") === "on",
   };
   const r = await fetch("/api/setup", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
   if (r.ok) {

@@ -128,6 +128,14 @@ async def run_planning(
 
         try:
             await asyncio.wait_for(_stream_with_progress(), timeout=90.0)
+        except asyncio.TimeoutError:
+            logger.error("[runner] Planning timed out after 90s for %s", request_id)
+            if progress is not None:
+                await progress.on_planning_error(
+                    "timeout",
+                    "Planning took too long (90s limit). Check that Ollama is running and try a simpler request.",
+                )
+            return request_id, graph
         except HardConstraintDataUnavailable as _hc_exc:
             # A hard-constraint abort propagated out of astream_events.
             # Emit the user-facing detail directly — do NOT let str(_hc_exc)

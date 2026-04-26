@@ -74,6 +74,7 @@ class PlanRequirements(BaseModel):
     must_have_cell_coverage: bool = False
     family_friendly: bool = True
     dietary_requirements: list[str] = Field(default_factory=list)
+    include_meal: bool = True  # False → skip restaurant search (e.g. packed lunch, all-day hike)
     # Mutated fields (revision strategy matrix — Tech §4.4):
     require_cell_coverage: bool = False  # set True on family no-cell rejection
     max_activity_hours: float = 8.0  # reduced by 0.5 on logistics timeline conflict
