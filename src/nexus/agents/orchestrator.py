@@ -216,6 +216,19 @@ async def orchestrator_check_consensus(state: WeekendPlanState) -> dict:
     elif rejections:
         current_phase = "revising"
 
+    # ISSUE-13: Broadcast rejection reason via custom event (decoupled from progress layer)
+    if current_phase == "revising" and rejection_text:
+        try:
+            from langgraph.types import adispatch_custom_event
+            await adispatch_custom_event(
+                "rejection_decided",
+                {"rejection_reason": rejection_text, "iteration": iteration_count},
+            )
+        except (ImportError, RuntimeError):
+            # adispatch_custom_event unavailable (old LangGraph) or called outside stream—
+            # degrade gracefully; rejection_context in state still drives re-draft.
+            pass
+
     return {
         "iteration_count": iteration_count,
         "current_phase": current_phase,

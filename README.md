@@ -26,7 +26,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 
 # 3. Pull the local model
-ollama pull qwen3:8b
+ollama pull qwen3.5:9b
 
 # 4. Start Nexus
 uv run nexus
@@ -117,9 +117,11 @@ All three pages share the same design system (system fonts, CSS custom propertie
 - **macOS** 12+ or Linux (Ubuntu 22.04+)
 - **Python** 3.12+
 - **Ollama** (installed by `start.command` automatically)
-- **RAM** ≥ 8 GB (16 GB recommended for `qwen3:8b`)
+- **RAM** ≥ 8 GB (16 GB recommended for `qwen3.5:9b`)
 - **Disk** ≥ 15 GB free
 - **Yelp API key** (optional, free tier — for restaurant search)
+
+**Geographic coverage:** Works best in the Pacific Northwest (curated local trail data). Users outside the PNW receive activity suggestions estimated from their coordinates — full coverage as a degraded-mode fallback. Live Overpass API data works globally.
 
 ---
 

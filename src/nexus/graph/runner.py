@@ -78,13 +78,14 @@ async def run_planning(
         target_date=target_date,
     )
 
-    # Build runtime services — passed to build_planning_graph as closure values,
-    # NOT stored in state (they are not JSON-serializable and would be lost on
-    # checkpoint round-trips). The node wrappers re-inject them on every call.
+    # Build runtime services — use server-lifecycle singletons when available
+    # (singleton = warm cache shared across runs). Fall back to fresh instances
+    # in test context where _lifespan has not run (runtime.tool_registry is None).
+    import nexus.runtime as runtime
     from nexus.llm.router import ModelRouter
     from nexus.tools.registry import build_registry
-    _model_router = ModelRouter(config)
-    _tool_registry = build_registry(config)
+    _model_router = runtime.model_router or ModelRouter(config)
+    _tool_registry = runtime.tool_registry or build_registry(config)
 
     request_id = initial["request_id"]
 
@@ -102,6 +103,17 @@ async def run_planning(
             async for event in graph.astream_events(initial, config=thread_config, version="v2"):
                 evt_type: str = event.get("event", "")
                 node_name: str = event.get("name", "")
+
+                # ISSUE-13: Handle rejection_decided custom events
+                if evt_type == "on_custom_event" and node_name == "rejection_decided":
+                    if progress is not None:
+                        data = event.get("data", {})
+                        await progress.on_rejection_decided(
+                            data.get("rejection_reason", ""),
+                            data.get("iteration", 1),
+                        )
+                    continue
+
                 if node_name not in _PROGRESS_NODES:
                     continue
                 if progress is not None:
@@ -110,10 +122,10 @@ async def run_planning(
                     elif evt_type == "on_chain_end":
                         await progress.on_node_complete(node_name)
 
-        # 15-minute planning time cap — local thinking models can be slow (PRD §6.5)
+        # PRD §6.5: 90-second planning time cap (corrected from 900s — ISSUE-06)
         from nexus.resilience import HardConstraintDataUnavailable
         try:
-            await asyncio.wait_for(_stream_with_progress(), timeout=900.0)
+            await asyncio.wait_for(_stream_with_progress(), timeout=90.0)
         except HardConstraintDataUnavailable as _hc_exc:
             # A hard-constraint abort propagated out of astream_events.
             # Emit the user-facing detail directly — do NOT let str(_hc_exc)

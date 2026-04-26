@@ -79,20 +79,23 @@ def _make_mock_registry():
 
     activity_tool = MagicMock()
     activity_tool.search_activities = AsyncMock(
-        return_value=[
-            ActivityResult(
-                activity_id="act-j1",
-                name="Windy Hill Preserve",
-                activity_type="hiking",
-                location_coordinates=(37.37, -122.19),
-                description="Scenic ridge hike",
-                difficulty="moderate",
-                distance_miles=8.0,
-                elevation_gain_ft=1200,
-                data_age_minutes=0,
-                confidence="verified",
-            )
-        ]
+        return_value=(
+            [
+                ActivityResult(
+                    activity_id="act-j1",
+                    name="Windy Hill Preserve",
+                    activity_type="hiking",
+                    location_coordinates=(37.37, -122.19),
+                    description="Scenic ridge hike",
+                    difficulty="moderate",
+                    distance_miles=8.0,
+                    elevation_gain_ft=1200,
+                    data_age_minutes=0,
+                    confidence="verified",
+                )
+            ],
+            "live",
+        )
     )
 
     places_tool = MagicMock()

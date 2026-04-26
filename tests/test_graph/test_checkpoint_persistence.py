@@ -52,7 +52,7 @@ def _initial_state(request_id: str) -> tuple[dict, dict]:
     )
     mock_registry.routing = MagicMock()
     mock_registry.activity = MagicMock()
-    mock_registry.activity.search_activities = AsyncMock(return_value=[])
+    mock_registry.activity.search_activities = AsyncMock(return_value=([], "static_pnw"))
 
     # model_router must return an awaitable model
     mock_model = MagicMock()

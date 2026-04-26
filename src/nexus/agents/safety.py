@@ -40,6 +40,18 @@ async def safety_review(state: WeekendPlanState) -> dict:
     route_data = state.get("route_data") or {}
     registry = state["tool_registry"]
 
+    # ── Read configurable thresholds ────────────────────────────────────────
+    from nexus.config import NexusConfig
+    _config = state.get("config")
+    if isinstance(_config, NexusConfig):
+        _marginal_precip = float(_config.planning.marginal_weather_precip_pct)
+        _hospital_radius = _config.planning.hospital_search_radius_miles
+        _sunset_buffer = _config.planning.min_sunset_buffer_minutes
+    else:
+        _marginal_precip = MARGINAL_WEATHER_PRECIP_THRESHOLD
+        _hospital_radius = HOSPITAL_SEARCH_RADIUS_MILES
+        _sunset_buffer = SUNSET_BUFFER_MINUTES
+
     rejections: list[str] = []
 
     # ── Hospital proximity check ───────────────────────────────────────────
@@ -47,21 +59,23 @@ async def safety_review(state: WeekendPlanState) -> dict:
     has_family = family_profile is not None and len(getattr(family_profile, "members", [])) > 0
     marginal_weather = (
         weather is not None
-        and weather.precipitation_probability > MARGINAL_WEATHER_PRECIP_THRESHOLD
+        and weather.precipitation_probability > _marginal_precip
     )
     is_remote = False
     if has_family and marginal_weather:
-        nearby_hospitals = await registry.activity.search_activities(
+        _hospital_result = await registry.activity.search_activities(
             proposal.location_coordinates,
-            HOSPITAL_SEARCH_RADIUS_MILES,
+            _hospital_radius,
             ["hospital", "emergency"],
         )
+        # search_activities returns (list, data_source) tuple — unpack
+        nearby_hospitals, _ = _hospital_result
         is_remote = len(nearby_hospitals) == 0
 
     if is_remote and has_family and marginal_weather:
         rejections.append(
             "Remote location with family and marginal weather — "
-            f"no hospital within {HOSPITAL_SEARCH_RADIUS_MILES:.0f} miles, "
+            f"no hospital within {_hospital_radius:.0f} miles, "
             f"precip {weather.precipitation_probability:.0f}%"
         )
 
@@ -79,7 +93,7 @@ async def safety_review(state: WeekendPlanState) -> dict:
         estimated_return_naive = estimated_return.replace(tzinfo=None) if estimated_return.tzinfo else estimated_return
         sunset_dt = weather.daylight.sunset
         sunset_naive = sunset_dt.replace(tzinfo=None) if sunset_dt.tzinfo else sunset_dt
-        sunset_deadline = sunset_naive - timedelta(minutes=SUNSET_BUFFER_MINUTES)
+        sunset_deadline = sunset_naive - timedelta(minutes=_sunset_buffer)
 
         if estimated_return_naive > sunset_deadline:
             rejections.append(

@@ -122,14 +122,17 @@ def _load_real_agents() -> dict:
 _AGENT_REGISTRY: dict[str, object] = _load_real_agents()
 
 
-def fan_out_to_reviewers(state: WeekendPlanState) -> list[Send]:
-    """
-    Fan out to all 4 reviewers in parallel via Send objects.
+def fan_out_to_reviewers(state: WeekendPlanState) -> list[Send] | str:
+    """Fan out to all 4 reviewers in parallel via Send objects.
 
-    Critical: returning bare strings instead of Send objects would NOT produce
-    true parallel execution in LangGraph — each Send carries the full state
-    snapshot to its target node.
+    ISSUE-01: Short-circuit to synthesize_plan when static_template fallback is active.
+    Template activities have fabricated coordinates — running them through Logistics
+    (OSRM routes) and Safety (emergency-service proximity) produces formally correct
+    but semantically meaningless verdicts at the cost of 3-4 LLM calls.
     """
+    if state.get("activity_data_source") == "static_template":
+        # Skip all reviewer + consensus nodes; synthesizer adds a degraded-data note
+        return "synthesize_plan"
     return [
         Send("review_meteorology", state),
         Send("review_family", state),
@@ -249,7 +252,7 @@ def build_planning_graph(
     graph.add_edge(START, "parse_intent")
     graph.add_edge("parse_intent", "draft_proposal")
 
-    # Fan-out: draft_proposal → [4 reviewers] in parallel
+    # Fan-out: draft_proposal → [4 reviewers] in parallel OR direct to synthesize_plan
     graph.add_conditional_edges(
         "draft_proposal",
         fan_out_to_reviewers,
@@ -258,6 +261,7 @@ def build_planning_graph(
             "review_family": "review_family",
             "review_nutrition": "review_nutrition",
             "review_logistics": "review_logistics",
+            "synthesize_plan": "synthesize_plan",  # ISSUE-01: static_template short-circuit
         },
     )
 

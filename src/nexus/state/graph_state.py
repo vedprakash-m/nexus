@@ -93,3 +93,8 @@ class WeekendPlanState(TypedDict, total=False):
     # keys: data source names (e.g. "weather", "route")
     # values: display strings (e.g. "(est.)", "(3hr cache)")
     output_confidence_labels: dict[str, str] | None
+    # ── Data provenance ──────────────────────────────────────────────────
+    # ISSUE-01/ISSUE-14: Written by objective_draft_proposal after search_activities().
+    # Default 'live' for backward compatibility with existing checkpoints —
+    # guard all reads with .get('activity_data_source', 'live').
+    activity_data_source: Literal["live", "cached", "static_pnw", "static_template"]

@@ -74,11 +74,22 @@ async def logistics_review(state: WeekendPlanState) -> dict:
     max_driving = family_profile.max_total_driving_minutes if family_profile else 120
 
     # ── Timeline conflict checks ───────────────────────────────────────────
+    from nexus.config import NexusConfig
+    _config = state.get("config")
+    if isinstance(_config, NexusConfig):
+        _earliest_departure = _config.planning.earliest_departure_hour
+        _max_day_hours = _config.planning.max_day_hours
+    else:
+        _earliest_departure = EARLIEST_DEPARTURE_HOUR
+        _max_day_hours = MAX_ACCEPTABLE_DAY_HOURS
+
     conflicts = _detect_timeline_conflicts(
         state,
         route_home_to_activity,
         route_activity_to_restaurant,
         route_restaurant_to_home or route_activity_to_home,
+        earliest_departure_hour=_earliest_departure,
+        max_day_hours=_max_day_hours,
     )
 
     route_data = {
@@ -137,6 +148,8 @@ def _detect_timeline_conflicts(
     home_to_activity: RouteResult,
     activity_to_restaurant: RouteResult | None,
     restaurant_to_home: RouteResult,
+    earliest_departure_hour: int = EARLIEST_DEPARTURE_HOUR,
+    max_day_hours: float = MAX_ACCEPTABLE_DAY_HOURS,
 ) -> list[str]:
     """
     Detect timeline conflicts in the day plan.
@@ -149,14 +162,14 @@ def _detect_timeline_conflicts(
 
     conflicts: list[str] = []
 
-    # Check 1: departure before 6am
+    # Check 1: departure before earliest_departure_hour
     departure = proposal.start_time - timedelta(minutes=home_to_activity.duration_minutes)
-    if departure.hour < EARLIEST_DEPARTURE_HOUR:
+    if departure.hour < earliest_departure_hour:
         conflicts.append(
-            f"Departure at {departure.strftime('%H:%M')} is before 6:00 AM"
+            f"Departure at {departure.strftime('%H:%M')} is before {earliest_departure_hour:02d}:00"
         )
 
-    # Check 2: full day exceeds 12 hours
+    # Check 2: full day exceeds max_day_hours
     activity_duration_min = proposal.estimated_duration_hours * 60
     total_day_min = (
         home_to_activity.duration_minutes
@@ -165,9 +178,9 @@ def _detect_timeline_conflicts(
         + MEAL_DURATION_MINUTES
         + restaurant_to_home.duration_minutes
     )
-    if total_day_min > MAX_ACCEPTABLE_DAY_HOURS * 60:
+    if total_day_min > max_day_hours * 60:
         conflicts.append(
-            f"Full day plan is {total_day_min / 60:.1f} hours — exceeds {MAX_ACCEPTABLE_DAY_HOURS}h limit"
+            f"Full day plan is {total_day_min / 60:.1f} hours — exceeds {max_day_hours:.0f}h limit"
         )
 
     return conflicts

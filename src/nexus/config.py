@@ -55,6 +55,26 @@ class PlanningConfig(BaseModel):
     precipitation_threshold_pct: int = 40
     aqi_threshold: int = 100
     min_sunset_buffer_minutes: int = 30
+    # Cell coverage heuristic: road distance (miles) below which coverage is assumed.
+    # Increase to pass more remote trailheads; set to 0.0 to disable the check entirely.
+    cell_coverage_road_proximity_miles: float = 1.0
+    # Whether a teen family member alone triggers the cell-coverage hard reject.
+    # False (default) means only members with requires_cell_service=true are enforced.
+    require_teen_cell_service: bool = False
+    # Logistics constraints — set to 0 / large values to relax.
+    earliest_departure_hour: int = 6
+    max_day_hours: float = 12.0
+    # Restaurant search radius from the activity endpoint. Raise for remote trailheads
+    # (e.g. 30.0 to find a town on the drive home).
+    restaurant_search_radius_miles: float = 10.0
+    # Safety: precip % at or above which hospital proximity is also checked (family plans).
+    # Lower = stricter; raise or set to 100 to skip the hospital check entirely.
+    marginal_weather_precip_pct: int = 30
+    # Safety: no hospital within this radius + family + marginal weather → REJECTED.
+    hospital_search_radius_miles: float = 30.0
+    # Number of activity candidates shown to the LLM for ranking. More = more variety
+    # but slightly slower (LLM reads the list). 20 is a good balance.
+    max_candidate_activities: int = 20
 
 
 class PathsConfig(BaseModel):

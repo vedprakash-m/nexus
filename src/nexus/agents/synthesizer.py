@@ -44,6 +44,25 @@ async def plan_synthesizer(state: WeekendPlanState) -> dict:
             "No suitable activity could be found within your constraints after all planning passes.",
         )
 
+    # ── ISSUE-14: Note when static fallback data was used ─────────────────
+    data_source = state.get("activity_data_source", "live")
+    _fallback_note: str | None = None
+    if data_source == "static_pnw":
+        _fallback_note = (
+            "Note: Activity options are based on a curated local list "
+            "(live trail data was temporarily unavailable)."
+        )
+    elif data_source == "static_template":
+        _fallback_note = (
+            "Note: Activity options are estimated based on your location "
+            "(live activity search was unavailable; verify details before visiting)."
+        )
+    elif data_source == "cached":
+        _fallback_note = (
+            "Note: Activity options are from a recent cache "
+            "(live data check was skipped)."
+        )
+
     # ── Slim context for LLM ──────────────────────────────────────────────
     llm_context = prepare_llm_context(state)
 
@@ -90,8 +109,24 @@ async def plan_synthesizer(state: WeekendPlanState) -> dict:
     # html.render_plan_html uses Jinja2 plan.html.j2 (full page, Tech §9.4).
     # renderer.render_plan_markdown renders the Markdown artifact only.
     from nexus.output.html import render_plan_html as _render_html_jinja2
+    from nexus.output.renderer import render_minimal_plan
 
-    html_output = _render_html_jinja2(state, narrative_text)
+    # Inject fallback note into narrative if present (ISSUE-14)
+    if _fallback_note and narrative_text:
+        narrative_text = narrative_text.rstrip() + f"\n\n*{_fallback_note}*"
+    elif _fallback_note:
+        narrative_text = f"*{_fallback_note}*"
+
+    # ISSUE-17: Wrap full render in try/except — fall back to minimal renderer
+    # if Jinja2 or any other rendering step fails (e.g., template context mismatch).
+    try:
+        html_output = _render_html_jinja2(state, narrative_text)
+    except Exception as render_exc:
+        logger.error(
+            "synthesizer: full renderer failed (%s) — using minimal plan renderer",
+            render_exc,
+        )
+        html_output = render_minimal_plan(state)
     md_output = render_plan_markdown(state, narrative_text)
 
     # ── Backup activity ───────────────────────────────────────────────────

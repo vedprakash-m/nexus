@@ -57,8 +57,9 @@ else
 fi
 
 # ── 4. Start Ollama if not running ────────────────────────────────────────
+export OLLAMA_USE_MLX=1          # enable Apple Silicon MLX backend
 if ! nc -z 127.0.0.1 11434 2>/dev/null; then
-  info "Starting Ollama..."
+  info "Starting Ollama with MLX backend..."
   ollama serve &>/dev/null &
   sleep 2
   if nc -z 127.0.0.1 11434 2>/dev/null; then

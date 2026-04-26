@@ -140,7 +140,8 @@ class TestOverpassActivities:
         httpx_mock.add_response(json=_fixture("overpass_activities.json"))
 
         provider = OverpassActivities()
-        results = await provider.search_activities((37.39, -122.08), 20.0, ["hiking"])
+        result = await provider.search_activities((37.39, -122.08), 20.0, ["hiking"])
+        results, data_source = result
 
         assert len(results) == 2
         assert results[0].name == "Windy Hill Open Space Preserve"
@@ -158,10 +159,13 @@ class TestOverpassActivities:
         )
 
         provider = OverpassActivities()
-        # SF/Bay Area coords — all static PNW trails are 700+ miles away, so fallback also returns []
-        results = await provider.search_activities((37.39, -122.08), 20.0, ["hiking"])
+        # Use PNW coords (within bounds) with tiny 0.5-mile radius so no
+        # static PNW trails match, yielding ([], 'static_pnw').
+        result = await provider.search_activities((47.5, -121.5), 0.5, ["hiking"])
+        results, data_source = result
 
         assert results == []
+        assert data_source == "static_pnw"
 
 
 class TestCoverageEstimate:
@@ -231,9 +235,9 @@ class TestFetchWithFallbackRetry:
             nonlocal call_count
             call_count += 1
             if call_count < 3:
-                # Simulate 429 Too Many Requests (transient — should be retried)
-                resp = httpx.Response(429)
-                raise httpx.HTTPStatusError("rate limited", request=httpx.Request("GET", "http://x"), response=resp)
+                # Simulate 500 Internal Server Error (transient — should be retried)
+                resp = httpx.Response(500)
+                raise httpx.HTTPStatusError("server error", request=httpx.Request("GET", "http://x"), response=resp)
             return "success_value"
 
         cache_dir = tmp_path / "cache"

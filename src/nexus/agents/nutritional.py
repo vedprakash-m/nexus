@@ -53,10 +53,18 @@ async def nutritional_review(state: WeekendPlanState) -> dict:
     registry = state["tool_registry"]
     dietary_restrictions = getattr(user, "dietary_restrictions", []) if user else []
 
+    from nexus.config import NexusConfig
+    _config = state.get("config")
+    _restaurant_radius = (
+        _config.planning.restaurant_search_radius_miles
+        if isinstance(_config, NexusConfig)
+        else RESTAURANT_SEARCH_RADIUS_MILES
+    )
+
     # ── Search restaurants near endpoint ──────────────────────────────────
     restaurants = await registry.places.search_restaurants(
         proposal.endpoint_coordinates,
-        RESTAURANT_SEARCH_RADIUS_MILES,
+        _restaurant_radius,
         dietary_restrictions=dietary_restrictions,
     )
 
@@ -69,12 +77,12 @@ async def nutritional_review(state: WeekendPlanState) -> dict:
                     verdict="REJECTED",
                     is_hard_constraint=True,
                     confidence=1.0,
-                    rejection_reason=f"No restaurants found within {RESTAURANT_SEARCH_RADIUS_MILES:.0f} miles of activity endpoint",
-                    recommendation="Choose an activity closer to dining options",
+                    rejection_reason=f"No restaurants found within {_restaurant_radius:.0f} miles of activity endpoint",
+                    recommendation="Choose an activity closer to dining options, or raise restaurant_search_radius_miles in your profile",
                 )
             ],
             "negotiation_log": [
-                f"nutritional: REJECTED — no restaurants within {RESTAURANT_SEARCH_RADIUS_MILES:.0f} miles"
+                f"nutritional: REJECTED — no restaurants within {_restaurant_radius:.0f} miles"
             ],
         }
 

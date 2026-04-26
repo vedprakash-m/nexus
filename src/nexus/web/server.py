@@ -29,6 +29,22 @@ async def _lifespan(app: FastAPI):
     config: NexusConfig = app.state.config
     runtime.tool_registry = build_registry(config)
     runtime.model_router = ModelRouter(config)
+
+    # ISSUE-08: Periodic background eviction of stale _plan_contexts entries
+    import asyncio as _asyncio
+    from nexus.web.routes import _plan_contexts, _plan_context_timestamps
+
+    async def _evict_stale_contexts() -> None:
+        import time as _time
+        while True:
+            await _asyncio.sleep(1800)  # every 30 minutes
+            _now = _time.monotonic()
+            _stale = [k for k, t in list(_plan_context_timestamps.items()) if _now - t > 7200]
+            for k in _stale:
+                _plan_contexts.pop(k, None)
+                _plan_context_timestamps.pop(k, None)
+
+    _asyncio.create_task(_evict_stale_contexts())
     yield
     # Cleanup on shutdown (no-op for singletons)
 

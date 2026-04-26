@@ -86,7 +86,7 @@ def _safety_state(
     )
 
     mock_activity = MagicMock()
-    mock_activity.search_activities = AsyncMock(return_value=hospital_results)
+    mock_activity.search_activities = AsyncMock(return_value=(hospital_results, "live"))
 
     mock_routing = MagicMock()
     mock_routing.get_route = AsyncMock(return_value=_make_route_result(route_duration))

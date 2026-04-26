@@ -1,0 +1,77 @@
+{% extends "base.html.j2" %}
+
+{% block title %}{{ activity_name }} — Nexus{% endblock %}
+
+{% block content %}
+<main class="plan-page">
+  {# ISSUE-17: Minimal plan renderer — shown when LLM narration is unavailable #}
+  <div class="degraded-banner" role="alert">
+    <span class="degraded-icon">⚠</span>
+    <span>Plan summary — narration temporarily unavailable. All verified details are shown below.</span>
+  </div>
+
+  <header class="plan-header">
+    <h1 class="plan-title">{{ activity_name }}</h1>
+    {% if target_date %}
+    <p class="plan-date">{{ target_date }}</p>
+    {% endif %}
+  </header>
+
+  <section class="plan-section">
+    <h2 class="section-title">Activity</h2>
+    <div class="detail-card">
+      <div class="detail-row">
+        <span class="detail-label">Activity</span>
+        <span class="detail-value">{{ activity_name }}</span>
+      </div>
+      {% if start_time %}
+      <div class="detail-row">
+        <span class="detail-label">Start time</span>
+        <span class="detail-value">{{ start_time }}</span>
+      </div>
+      {% endif %}
+      {% if location %}
+      <div class="detail-row">
+        <span class="detail-label">Location</span>
+        <span class="detail-value">{{ location }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if weather_summary %}
+  <section class="plan-section">
+    <h2 class="section-title">Conditions</h2>
+    <div class="detail-card">
+      <p class="detail-value">{{ weather_summary }}</p>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if restaurant_name %}
+  <section class="plan-section">
+    <h2 class="section-title">Dining</h2>
+    <div class="detail-card">
+      <div class="detail-row">
+        <span class="detail-label">Restaurant</span>
+        <span class="detail-value">{{ restaurant_name }}</span>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if family_activities %}
+  <section class="plan-section">
+    <h2 class="section-title">Family</h2>
+    <div class="detail-card">
+      {% for fa in family_activities %}
+      <div class="detail-row">
+        <span class="detail-label">{{ fa.member_name }}</span>
+        <span class="detail-value">{{ fa.activity_name }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

@@ -42,6 +42,19 @@ class SetupRequest(BaseModel):
     dietary_restrictions: list[str] = []
     preferred_activities: list[str] = []
     max_driving_minutes: int = 90
+    # Planning knobs
+    max_iterations: int = 3
+    precipitation_threshold_pct: int = 40
+    aqi_threshold: int = 100
+    min_sunset_buffer_minutes: int = 30
+    cell_coverage_road_proximity_miles: float = 1.0
+    require_teen_cell_service: bool = False
+    earliest_departure_hour: int = 6
+    max_day_hours: float = 12.0
+    restaurant_search_radius_miles: float = 10.0
+    marginal_weather_precip_pct: int = 30
+    hospital_search_radius_miles: float = 30.0
+    max_candidate_activities: int = 20
 
 
 class ApiKeyRequest(BaseModel):

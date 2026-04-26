@@ -37,6 +37,7 @@ class ModelRouter:
             model=config.models.local_model,
             base_url=config.ollama.base_url,
             temperature=0.2,  # low creativity for structured output
+            reasoning=False,  # disable chain-of-thought (new Ollama engine; replaces /no_think)
             # No global format="json" — agents that need structured output use
             # with_structured_output() which sets format per-call. The synthesizer
             # needs prose output, so a global JSON lock would break narration.
@@ -48,6 +49,7 @@ class ModelRouter:
                 model=config.models.cloud_agents.model,
                 base_url=config.ollama.base_url,
                 temperature=0.4,  # slightly higher for narration quality
+                reasoning=False,  # disable chain-of-thought
             )
 
     def get_model(self, agent_name: str) -> ChatOllama:

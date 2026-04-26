@@ -86,6 +86,68 @@ def render_plan_markdown(state: "WeekendPlanState", narrative_text: str) -> str:
     return "\n".join(lines)
 
 
+def render_minimal_plan(state: "WeekendPlanState") -> str:
+    """
+    ISSUE-17: Deterministic Jinja2 minimal-plan renderer.
+
+    Used as a fallback when plan_synthesizer fails after successful validation.
+    Reads only fields that are guaranteed present after the validation phase;
+    all field reads use .get() with safe defaults.
+
+    Returns: A complete HTML page (inherits base.html.j2).
+    """
+    import jinja2
+    from pathlib import Path
+
+    _TEMPLATE_DIR = Path(__file__).parent.parent / "templates"
+    _env = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(str(_TEMPLATE_DIR)),
+        undefined=jinja2.Undefined,  # permissive — do not raise on missing keys
+        autoescape=jinja2.select_autoescape(["html"]),
+    )
+
+    proposal = state.get("primary_activity")
+    meal = state.get("meal_plan")
+    weather = state.get("weather_data")
+    target_date = state.get("target_date")
+    family_activities = state.get("family_activities") or []
+
+    activity_name = getattr(proposal, "activity_name", "Activity") if proposal else "Activity"
+    start_time = None
+    if proposal is not None:
+        start_hour = getattr(proposal, "start_hour", None)
+        if isinstance(start_hour, int):
+            suffix = "AM" if start_hour < 12 else "PM"
+            display_h = start_hour if start_hour <= 12 else start_hour - 12
+            start_time = f"{display_h}:00 {suffix}"
+
+    location = getattr(proposal, "activity_name", "") if proposal else ""
+
+    weather_summary = None
+    if weather is not None:
+        conditions = getattr(weather, "conditions_text", "")
+        high_f = getattr(weather, "temperature_high_f", None)
+        weather_summary = f"{conditions}, high {high_f:.0f}°F" if high_f else conditions
+
+    restaurant_name = getattr(meal, "name", None) if meal else None
+
+    try:
+        date_str = target_date.strftime("%A, %B %-d, %Y") if target_date else None
+    except (AttributeError, ValueError):
+        date_str = str(target_date) if target_date else None
+
+    template = _env.get_template("plan_minimal.html.j2")
+    return template.render(
+        activity_name=activity_name,
+        target_date=date_str,
+        start_time=start_time,
+        location=location,
+        weather_summary=weather_summary,
+        restaurant_name=restaurant_name,
+        family_activities=family_activities,
+    )
+
+
 def render_plan_fragment(state: "WeekendPlanState", narrative_text: str) -> str:
     """
     Render the plan as a minimal HTML fragment (embedded in plan page).

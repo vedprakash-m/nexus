@@ -1,6 +1,6 @@
 # UX Specification: Project Nexus
 
-> **Version:** 1.7.0
+> **Version:** 1.7.1
 > **Status:** Implemented — Reflects production templates
 > **Author:** Ved
 > **Last Updated:** 2026-04-19
@@ -594,6 +594,7 @@ The wait is the most critical UX moment. The planning page uses a 2-zone cockpit
 | **No percentage bars** | The work is discrete tasks, not a continuous process. Checkmarks, not progress bars |
 | **Failure is specific** | "Sunday weather: rain expected — trying Saturday..." not "Error in node" |
 | **Constraint injection acknowledged** | When the user adds a constraint mid-planning, it appears in the stream with a ← arrow |
+| **Rejection reason surfaced** | When a draft is rejected internally, the progress display shows what constraint failed (e.g., "Drive time too long — adjusting search radius") so the user understands the system is working, not stuck |
 
 ### 5.4 Progress States
 
@@ -911,6 +912,25 @@ When the system can't meet all goals, the hero card and "Why" section shift tone
 ```
 
 **Critical rule:** Even a compromised plan is a single recommendation, not a menu. The system picks the best option and explains what was sacrificed. The user approves or rejects — they don't compare.
+
+### 6.6 Activity Data Source Disclosure
+
+When live activity data is unavailable and the plan uses a fallback source, the plan narrative includes a plain-English note — never a technical error message:
+
+| Data source | Note shown in plan |
+|-------------|-------------------|
+| `live` | *(no note — normal case)* |
+| `cached` | "Activity options are from a recent cache (live data check was skipped)." |
+| `static_pnw` | "Activity options are based on a curated local list (live trail data was temporarily unavailable)." |
+| `static_template` | "Activity options are estimated based on your location — verify details before visiting." |
+
+**Design rules for these notes:**
+- Placed at the end of the plan narrative, not in the hero card
+- Plain language: no technical terms like "Overpass API" or "cache miss"
+- Actionable: "verify before visiting" tells the user what to do
+- Honest: the system doesn't pretend live data was used when it wasn't
+
+**Degraded-mode plan (minimal renderer):** If the full plan renderer fails, a simplified version of the plan is displayed with a notice: *"Plan summary — narration temporarily unavailable."* The activity, time, weather summary, restaurant, and family activities are all shown. The approve/reject controls remain functional.
 
 ### 6.6 No-Safe-Plan Output
 

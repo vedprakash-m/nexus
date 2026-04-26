@@ -101,9 +101,12 @@ def build_registry(config: object) -> ToolRegistry:
 
     assert isinstance(config, NexusConfig)
 
+    from diskcache import Cache
+    _activity_cache = Cache(str(config.paths.cache_dir_safe / "activity"))
+
     registry = ToolRegistry()
     registry.register("weather", OpenMeteoWeather())
-    registry.register("activity", OverpassActivities())
+    registry.register("activity", OverpassActivities(cache=_activity_cache))
     registry.register(
         "places",
         GooglePlaces(api_key=config.tools.api_keys.get("GOOGLE_PLACES_API_KEY", "")),

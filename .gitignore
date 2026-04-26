@@ -10,20 +10,34 @@ build/
 # uv
 .uv/
 
-# Environment
+# Environment & secrets
 .env
 *.env
 
-# Nexus runtime data
-~/.nexus/
-.nexus/
+# Nexus user data — everything in ~/.nexus/ is local-only by design.
+# If someone clones this repo and runs Nexus, their profile and plans
+# are created in ~/.nexus/ (outside this directory) and are never tracked.
+# The entries below cover any edge cases where these files might appear
+# inside the repo tree (e.g. during development with a custom base_dir).
+profile.yaml
+*.nexus.yaml
 
-# Databases & caches
+# Databases, checkpoints, caches
 *.db
 *.sqlite
 *.sqlite3
+checkpoints/
 .cache/
+cache/
 .ruff_cache/
+# diskcache generates .db + lock files inside the cache directory
+*.lck
+
+# Stats
+stats.db
+
+# Archive — internal engineering notes; never published
+.archive/
 
 # macOS
 .DS_Store

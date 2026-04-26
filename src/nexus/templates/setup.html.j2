@@ -1,100 +1,439 @@
 {% extends "base.html.j2" %}
-{% block title %}Nexus — Set Up{% endblock %}
+{% block title %}Nexus — Profile{% endblock %}
+{% block body_class %}cockpit{% endblock %}
+{% block head %}
+<style>
+  /* ── Tab nav (left column) ── */
+  .setup-shell {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .setup-nav {
+    border-right: 1px solid var(--color-border);
+    padding: 1rem .75rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    background: var(--color-surface);
+  }
+  .setup-nav-header {
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--color-text-muted);
+    padding: .5rem .5rem .25rem;
+    margin-top: .5rem;
+  }
+  .setup-nav-header:first-child { margin-top: 0; }
+  .tab-btn {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    width: 100%;
+    text-align: left;
+    padding: .5rem .65rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+    font-size: .9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background .12s, color .12s;
+  }
+  .tab-btn:hover { background: var(--color-bg); color: var(--color-text); }
+  .tab-btn.active { background: var(--color-accent-light); color: var(--color-accent); font-weight: 600; }
+  .tab-btn .tab-icon { font-size: 1rem; width: 1.1rem; text-align: center; flex-shrink: 0; }
+  .tab-btn .tab-badge {
+    margin-left: auto;
+    font-size: .68rem;
+    font-weight: 700;
+    background: var(--color-accent);
+    color: #fff;
+    border-radius: 99px;
+    padding: .1rem .4rem;
+  }
+
+  /* ── Tab panels (right column) ── */
+  .setup-panels {
+    overflow-y: auto;
+    padding: 1.5rem 2rem;
+    min-height: 0;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .tab-panel h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 .25rem;
+  }
+  .tab-panel .panel-desc {
+    font-size: .85rem;
+    color: var(--color-text-muted);
+    margin: 0 0 1.25rem;
+  }
+
+  /* ── Field grid ── */
+  .fg { display: grid; gap: 1rem; }
+  .fg-2 { grid-template-columns: 1fr 1fr; }
+  .fg .span2 { grid-column: 1 / -1; }
+  .field { display: flex; flex-direction: column; gap: .3rem; }
+  .field > label { font-size: .82rem; font-weight: 600; color: var(--color-text-muted); letter-spacing: .01em; }
+  .field .hint { font-size: .76rem; color: var(--color-text-muted); margin: 0; line-height: 1.4; }
+  .field input, .field select { margin: 0; }
+
+  /* ── Divider ── */
+  .panel-divider {
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--color-text-muted);
+    border-top: 1px solid var(--color-border);
+    padding-top: .75rem;
+    margin-top: .25rem;
+    grid-column: 1 / -1;
+  }
+
+  /* ── Toggle row ── */
+  .toggle-field {
+    display: flex;
+    align-items: flex-start;
+    gap: .65rem;
+    grid-column: 1 / -1;
+    padding: .5rem 0;
+  }
+  .toggle-field input[type=checkbox] { width: 1rem; height: 1rem; margin-top: .15rem; flex-shrink: 0; accent-color: var(--color-accent); }
+  .toggle-field .tl { display: flex; flex-direction: column; gap: .2rem; }
+  .toggle-field .tl span { font-size: .9rem; font-weight: 500; }
+  .toggle-field .tl small { font-size: .76rem; color: var(--color-text-muted); }
+
+  /* ── Bottom bar ── */
+  .setup-bottombar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: .75rem 1.5rem;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface);
+    flex-shrink: 0;
+  }
+
+  /* ── Status badge in nav ── */
+  .nav-status { width: .5rem; height: .5rem; border-radius: 50%; background: var(--color-accent); margin-left: auto; flex-shrink: 0; }
+
+  @media (max-width: 600px) {
+    .setup-shell { grid-template-columns: 1fr; }
+    .setup-nav { flex-direction: row; flex-wrap: wrap; border-right: none; border-bottom: 1px solid var(--color-border); padding: .5rem; }
+    .setup-nav-header { display: none; }
+    .setup-panels { padding: 1rem; }
+    .fg-2 { grid-template-columns: 1fr; }
+    .fg .span2 { grid-column: 1; }
+    .panel-divider { grid-column: 1; }
+    .toggle-field { grid-column: 1; }
+  }
+</style>
+{% endblock %}
 {% block body %}
-<h1>Set up Nexus</h1>
-{% if profile_exists %}
-<p>Your profile is saved. Update any section below.</p>
-<div style="display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1rem;">
-  <a href="#block-about"      class="btn btn-ghost">Edit My Details</a>
-  <a href="#block-activities" class="btn btn-ghost">Edit Activities</a>
-  <a href="#block-home"       class="btn btn-ghost">Edit Home Base</a>
-  <a href="#block-apikeys"    class="btn btn-ghost">Edit API Keys</a>
+
+<!-- Top bar -->
+<div class="cockpit-topbar">
+  <a href="/" style="font-weight:700; font-size:.95rem; color:var(--color-text); text-decoration:none;">← Nexus</a>
+  <span style="color:var(--color-border)">|</span>
+  <span style="font-weight:600">{% if profile_exists %}Your Profile{% else %}Set up Nexus{% endif %}</span>
+  {% if not profile_exists %}
+  <span style="font-size:.82rem; color:var(--color-text-muted)">— Everything stays on your machine. No accounts, no cloud.</span>
+  {% endif %}
 </div>
-{% else %}
-<p style="font-size:.9rem;">Everything stays on your machine — no accounts, no cloud.</p>
-{% endif %}
 
-<form id="setup-form">
-  <!-- Block 1: About You -->
-  <div class="card" id="block-about">
-    <h2>About You</h2>
-    <label>Your name<br>
-      <input class="text-input" style="margin-top:.35rem" name="name" type="text" placeholder="Alex" value="{{ profile.user.name if profile else '' }}" required>
-    </label>
-    <label style="display:block; margin-top:1rem">Fitness level<br>
-      <select class="text-input" name="fitness_level" style="margin-top:.35rem">
-        <option value="beginner"     {% if profile and profile.user.fitness_level == 'beginner' %}selected{% endif %}>Beginner</option>
-        <option value="intermediate" {% if profile and profile.user.fitness_level == 'intermediate' %}selected{% endif %}>Intermediate</option>
-        <option value="advanced"     {% if profile and profile.user.fitness_level == 'advanced' %}selected{% endif %}>Advanced</option>
-      </select>
-    </label>
-    <label style="display:block; margin-top:1rem">Dietary restrictions (comma-separated)<br>
-      <input class="text-input" name="dietary_restrictions" style="margin-top:.35rem" placeholder="vegetarian, gluten-free" value="{{ (profile.user.dietary_restrictions | join(', ')) if profile else '' }}">
-    </label>
-    <label style="display:block; margin-top:1rem">Max driving (minutes each way)<br>
-      <input class="text-input" name="max_driving_minutes" type="number" min="10" max="300" style="margin-top:.35rem" value="{{ profile.user.max_driving_minutes if profile else 90 }}">
-    </label>
-  </div>
+<form id="setup-form" style="flex:1; min-height:0; display:flex; flex-direction:column;">
 
-  <!-- Block 2: Home Base -->
-  <div class="card" id="block-home">
-    <h2>Home Base</h2>
-    <p style="font-size:.88rem;">Used to calculate travel time — never shared.</p>
-    <label style="display:block; margin-top:1rem">City or address<br>
-      <input class="text-input" name="home_address" type="text" style="margin-top:.35rem"
-             placeholder="San Francisco, CA"
-             value="{{ profile.user.home_address if profile and profile.user.home_address else '' }}" required>
-    </label>
-    <p style="font-size:.82rem; margin-top:.4rem; color:var(--color-text-muted);">e.g. &ldquo;Oakland, CA&rdquo; or &ldquo;123 Main St, Austin TX&rdquo;</p>
-  </div>
+<div class="setup-shell">
 
-  <!-- Block 3: Activities -->
-  <div class="card" id="block-activities">
-    <h2>Preferred Activities</h2>
-    <label>What do you love? (comma-separated)<br>
-      <input class="text-input" name="preferred_activities" style="margin-top:.35rem" placeholder="hiking, cycling, beach" value="{{ (profile.user.preferred_activities | join(', ')) if profile else '' }}">
-    </label>
-  </div>
+  <!-- Left: tab navigation -->
+  <nav class="setup-nav" aria-label="Profile sections">
+    <div class="setup-nav-header">Profile</div>
+    <button type="button" class="tab-btn active" data-tab="you">
+      <span class="tab-icon">👤</span> You
+    </button>
+    <button type="button" class="tab-btn" data-tab="location">
+      <span class="tab-icon">📍</span> Location
+    </button>
+    <button type="button" class="tab-btn" data-tab="activities">
+      <span class="tab-icon">🏃</span> Activities
+    </button>
+    <button type="button" class="tab-btn" data-tab="apikeys">
+      <span class="tab-icon">🔑</span> API Keys
+      {% if places_configured %}<span class="nav-status"></span>{% endif %}
+    </button>
+    <div class="setup-nav-header">Advanced</div>
+    <button type="button" class="tab-btn" data-tab="weather">
+      <span class="tab-icon">🌦</span> Weather
+    </button>
+    <button type="button" class="tab-btn" data-tab="schedule">
+      <span class="tab-icon">🕐</span> Schedule
+    </button>
+    <button type="button" class="tab-btn" data-tab="safety">
+      <span class="tab-icon">🏥</span> Safety
+    </button>
+    <button type="button" class="tab-btn" data-tab="search">
+      <span class="tab-icon">🔍</span> Search
+    </button>
+  </nav>
 
-  <!-- Block 4: API Keys -->
-  <div class="card" id="block-apikeys">
-    <h2>API Keys</h2>
-    <p style="font-size:.88rem;">One key covers everything — address lookup, restaurant search, and place details. Never logged.</p>
-    <label style="display:block; margin-top:1rem">Google Maps API key<br>
-      <input class="text-input" name="google_places_api_key" type="password" style="margin-top:.35rem" placeholder="Leave blank to use free fallback" autocomplete="off">
-    </label>
-    <p style="font-size:.82rem; margin-top:.4rem; color:var(--color-text-muted);">
-      <a href="https://console.cloud.google.com/" target="_blank" rel="noopener" style="color:var(--color-accent);">Google Cloud Console &rarr;</a>
-      &mdash; create a project, enable <strong>Geocoding API</strong> + <strong>Places API</strong>, create an API key. Google gives $200/month free credit. Without a key, address lookup falls back to OpenStreetMap (free).
-    </p>
-    {% if places_configured %}
-    <p style="font-size:.82rem; margin-top:.35rem; color: var(--color-accent);">&#10004; Google Places key configured ({{ places_key_prefix }}...)</p>
-    {% endif %}
-    <button type="button" id="test-places" class="btn btn-ghost" style="margin-top:.75rem; font-size:.88rem;">Test key</button>
-    <span id="places-status" style="font-size:.88rem; margin-left:.5rem;"></span>
-  </div>
+  <!-- Right: panels -->
+  <div class="setup-panels">
 
-  <div style="margin-top:1.5rem; display:flex; gap:.75rem;">
-    <button type="submit" class="btn btn-primary">Save Profile →</button>
-  </div>
+    <!-- You -->
+    <div class="tab-panel active" id="tab-you">
+      <h2>About You</h2>
+      <p class="panel-desc">Basic info that shapes every plan Nexus makes.</p>
+      <div class="fg fg-2">
+        <div class="field span2">
+          <label>Name</label>
+          <input class="text-input" name="name" type="text" placeholder="Alex"
+                 value="{{ profile.user.name if profile else '' }}" required>
+        </div>
+        <div class="field">
+          <label>Fitness level</label>
+          <select class="text-input" name="fitness_level">
+            <option value="beginner"     {% if profile and profile.user.fitness_level == 'beginner' %}selected{% endif %}>Beginner</option>
+            <option value="intermediate" {% if profile and profile.user.fitness_level == 'intermediate' %}selected{% endif %}>Intermediate</option>
+            <option value="advanced"     {% if profile and profile.user.fitness_level == 'advanced' %}selected{% endif %}>Advanced</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Max drive each way (minutes)</label>
+          <input class="text-input" name="max_driving_minutes" type="number" min="10" max="300"
+                 value="{{ profile.user.max_driving_minutes if profile else 90 }}">
+        </div>
+        <div class="field span2">
+          <label>Dietary restrictions</label>
+          <input class="text-input" name="dietary_restrictions" placeholder="vegetarian, gluten-free"
+                 value="{{ (profile.user.dietary_restrictions | join(', ')) if profile else '' }}">
+          <span class="hint">Comma-separated, or leave blank</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Location -->
+    <div class="tab-panel" id="tab-location">
+      <h2>Home Base</h2>
+      <p class="panel-desc">Used to calculate travel times. Never shared or logged.</p>
+      <div class="fg">
+        <div class="field">
+          <label>City or address</label>
+          <input class="text-input" name="home_address" type="text"
+                 placeholder="Sammamish, WA"
+                 value="{{ profile.user.home_address if profile and profile.user.home_address else '' }}" required>
+          <span class="hint">e.g. "Oakland, CA" or "123 Main St, Austin TX" — geocoded on save</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activities -->
+    <div class="tab-panel" id="tab-activities">
+      <h2>Preferred Activities</h2>
+      <p class="panel-desc">Nexus weights these when picking what to suggest.</p>
+      <div class="fg">
+        <div class="field">
+          <label>What do you love?</label>
+          <input class="text-input" name="preferred_activities" placeholder="hiking, cycling, beach"
+                 value="{{ (profile.user.preferred_activities | join(', ')) if profile else '' }}">
+          <span class="hint">Comma-separated list — be specific, e.g. "trail running" not just "running"</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Keys -->
+    <div class="tab-panel" id="tab-apikeys">
+      <h2>Google Maps API Key</h2>
+      <p class="panel-desc">Enables richer restaurant and place search. A free OSM fallback is always available.</p>
+      <div class="fg">
+        <div class="field">
+          <label>API key <span style="font-weight:400">(optional)</span></label>
+          <input class="text-input" name="google_places_api_key" type="password"
+                 placeholder="Leave blank to use OpenStreetMap (free)" autocomplete="off">
+          {% if places_configured %}
+          <span class="hint" style="color:var(--color-accent)">✔ Key configured ({{ places_key_prefix }}...)</span>
+          {% else %}
+          <span class="hint"><a href="https://console.cloud.google.com/" target="_blank" rel="noopener">Get a key at Google Cloud Console</a> — enable Geocoding + Places APIs. Google gives $200/mo free credit.</span>
+          {% endif %}
+        </div>
+        <div style="display:flex; align-items:center; gap:.75rem;">
+          <button type="button" id="test-places" class="btn btn-ghost" style="font-size:.88rem;">Test key</button>
+          <span id="places-status" style="font-size:.88rem;"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weather -->
+    <div class="tab-panel" id="tab-weather">
+      <h2>Weather Thresholds</h2>
+      <p class="panel-desc">When to cancel, warn, or flag a plan based on conditions.</p>
+      <div class="fg fg-2">
+        <div class="field">
+          <label>Cancel threshold — rain chance (%)</label>
+          <input class="text-input" name="precipitation_threshold_pct" type="number" min="0" max="100"
+                 value="{{ profile.planning.precipitation_threshold_pct if profile and profile.planning else 40 }}">
+          <span class="hint">Plan rejected if rain probability exceeds this</span>
+        </div>
+        <div class="field">
+          <label>Caution zone — rain chance (%)</label>
+          <input class="text-input" name="marginal_weather_precip_pct" type="number" min="0" max="100"
+                 value="{{ profile.planning.marginal_weather_precip_pct if profile and profile.planning else 30 }}">
+          <span class="hint">Flagged as marginal above this, below cancel threshold</span>
+        </div>
+        <div class="field">
+          <label>AQI limit</label>
+          <input class="text-input" name="aqi_threshold" type="number" min="0" max="500"
+                 value="{{ profile.planning.aqi_threshold if profile and profile.planning else 100 }}">
+          <span class="hint">Warn when air quality index exceeds this (100 = Moderate)</span>
+        </div>
+        <div class="field">
+          <label>Sunset buffer (minutes)</label>
+          <input class="text-input" name="min_sunset_buffer_minutes" type="number" min="0" max="120"
+                 value="{{ profile.planning.min_sunset_buffer_minutes if profile and profile.planning else 30 }}">
+          <span class="hint">End outdoor activities this long before dark</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Schedule -->
+    <div class="tab-panel" id="tab-schedule">
+      <h2>Day Structure</h2>
+      <p class="panel-desc">Constraints on how your day is shaped.</p>
+      <div class="fg fg-2">
+        <div class="field">
+          <label>Earliest departure (hour, 24h)</label>
+          <input class="text-input" name="earliest_departure_hour" type="number" min="0" max="23"
+                 value="{{ profile.planning.earliest_departure_hour if profile and profile.planning else 6 }}">
+          <span class="hint">e.g. 6 = 6 am, 8 = 8 am</span>
+        </div>
+        <div class="field">
+          <label>Max day length (hours)</label>
+          <input class="text-input" name="max_day_hours" type="number" min="1" max="24" step="0.5"
+                 value="{{ profile.planning.max_day_hours if profile and profile.planning else 12.0 }}">
+          <span class="hint">Total outing time cap</span>
+        </div>
+        <div class="field">
+          <label>Planning iterations</label>
+          <input class="text-input" name="max_iterations" type="number" min="1" max="10"
+                 value="{{ profile.planning.max_iterations if profile and profile.planning else 3 }}">
+          <span class="hint">Max re-planning rounds before accepting best result</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Safety -->
+    <div class="tab-panel" id="tab-safety">
+      <h2>Safety &amp; Cell Coverage</h2>
+      <p class="panel-desc">How Nexus evaluates emergency access and connectivity.</p>
+      <div class="fg fg-2">
+        <div class="field">
+          <label>Hospital search radius (miles)</label>
+          <input class="text-input" name="hospital_search_radius_miles" type="number" min="1" max="200" step="0.5"
+                 value="{{ profile.planning.hospital_search_radius_miles if profile and profile.planning else 30.0 }}">
+          <span class="hint">Look for a hospital within this distance of the activity</span>
+        </div>
+        <div class="field">
+          <label>Cell coverage road proximity (miles)</label>
+          <input class="text-input" name="cell_coverage_road_proximity_miles" type="number" min="0.1" max="20" step="0.1"
+                 value="{{ profile.planning.cell_coverage_road_proximity_miles if profile and profile.planning else 1.0 }}">
+          <span class="hint">Max acceptable distance from a road with signal</span>
+        </div>
+        <div class="toggle-field">
+          <input type="checkbox" name="require_teen_cell_service"
+                 {% if profile and profile.planning and profile.planning.require_teen_cell_service %}checked{% endif %}>
+          <div class="tl">
+            <span>Require cell service for teens</span>
+            <small>Applies stricter connectivity check when teens are in the group</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="tab-panel" id="tab-search">
+      <h2>Search Radii</h2>
+      <p class="panel-desc">How far Nexus looks when finding activities and restaurants.</p>
+      <div class="fg fg-2">
+        <div class="field">
+          <label>Max candidate activities</label>
+          <input class="text-input" name="max_candidate_activities" type="number" min="1" max="100"
+                 value="{{ profile.planning.max_candidate_activities if profile and profile.planning else 20 }}">
+          <span class="hint">How many options to evaluate before narrowing down</span>
+        </div>
+        <div class="field">
+          <label>Restaurant search radius (miles)</label>
+          <input class="text-input" name="restaurant_search_radius_miles" type="number" min="1" max="100" step="0.5"
+                 value="{{ profile.planning.restaurant_search_radius_miles if profile and profile.planning else 10.0 }}">
+          <span class="hint">Search radius from the activity location</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.setup-panels -->
+</div><!-- /.setup-shell -->
+
+<!-- Bottom bar — always visible -->
+<div class="setup-bottombar">
+  <button type="submit" class="btn btn-primary">Save Profile →</button>
+  <span id="save-result" style="font-size:.9rem;"></span>
+  <span style="margin-left:auto; font-size:.8rem; color:var(--color-text-muted);">All data stays on your machine</span>
+</div>
+
 </form>
 
-<div id="save-result" style="margin-top:1rem; font-size:.9rem;"></div>
-
 <script>
+// ── Tab switching ──
+const btns = document.querySelectorAll(".tab-btn");
+const panels = document.querySelectorAll(".tab-panel");
+
+function showTab(id) {
+  btns.forEach(b => b.classList.toggle("active", b.dataset.tab === id));
+  panels.forEach(p => p.classList.toggle("active", p.id === "tab-" + id));
+  history.replaceState(null, "", "#" + id);
+}
+
+btns.forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
+
+// Restore tab from URL hash
+const hash = location.hash.replace("#", "");
+if (hash && document.getElementById("tab-" + hash)) showTab(hash);
+
+// ── Form submit ──
 document.getElementById("setup-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const result = document.getElementById("save-result");
-  result.textContent = "Looking up your location…";
+  result.textContent = "Saving…";
   result.style.color = "var(--color-text-muted)";
   const fd = new FormData(e.target);
   const body = {
     name: fd.get("name"),
     home_address: fd.get("home_address"),
     fitness_level: fd.get("fitness_level"),
-    dietary_restrictions: fd.get("dietary_restrictions").split(",").map(s=>s.trim()).filter(Boolean),
-    preferred_activities: fd.get("preferred_activities").split(",").map(s=>s.trim()).filter(Boolean),
+    dietary_restrictions: (fd.get("dietary_restrictions") || "").split(",").map(s=>s.trim()).filter(Boolean),
+    preferred_activities: (fd.get("preferred_activities") || "").split(",").map(s=>s.trim()).filter(Boolean),
     max_driving_minutes: parseInt(fd.get("max_driving_minutes")),
+    max_iterations: parseInt(fd.get("max_iterations")),
+    precipitation_threshold_pct: parseInt(fd.get("precipitation_threshold_pct")),
+    aqi_threshold: parseInt(fd.get("aqi_threshold")),
+    min_sunset_buffer_minutes: parseInt(fd.get("min_sunset_buffer_minutes")),
+    cell_coverage_road_proximity_miles: parseFloat(fd.get("cell_coverage_road_proximity_miles")),
+    require_teen_cell_service: fd.get("require_teen_cell_service") === "on",
+    earliest_departure_hour: parseInt(fd.get("earliest_departure_hour")),
+    max_day_hours: parseFloat(fd.get("max_day_hours")),
+    restaurant_search_radius_miles: parseFloat(fd.get("restaurant_search_radius_miles")),
+    marginal_weather_precip_pct: parseInt(fd.get("marginal_weather_precip_pct")),
+    hospital_search_radius_miles: parseFloat(fd.get("hospital_search_radius_miles")),
+    max_candidate_activities: parseInt(fd.get("max_candidate_activities")),
   };
   const r = await fetch("/api/setup", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
   if (r.ok) {
@@ -102,30 +441,25 @@ document.getElementById("setup-form").addEventListener("submit", async (e) => {
     if (placesKey) {
       await fetch("/api/setup/api-keys", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({google_places_api_key: placesKey}) });
     }
-    result.textContent = "Saved. Taking you home...";
+    result.textContent = "Saved ✓";
     result.style.color = "var(--color-accent)";
-    setTimeout(() => location.href = "/", 1000);
+    setTimeout(() => location.href = "/", 800);
   } else {
-    result.textContent = "Something went wrong. Check your entries.";
+    result.textContent = "Something went wrong — check your entries.";
     result.style.color = "var(--color-danger)";
   }
 });
 
+// ── Test API key ──
 document.getElementById("test-places")?.addEventListener("click", async () => {
   const status = document.getElementById("places-status");
-  const keyInput = document.querySelector('input[name="google_places_api_key"]');
-  const keyValue = keyInput?.value?.trim();
-  status.textContent = "Saving...";
+  const keyValue = document.querySelector('input[name="google_places_api_key"]')?.value?.trim();
+  status.textContent = "Testing…";
   if (keyValue) {
-    await fetch("/api/setup/api-keys", {
-      method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({google_places_api_key: keyValue}),
-    });
+    await fetch("/api/setup/api-keys", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({google_places_api_key: keyValue}) });
   }
-  const r = await fetch("/api/setup/api-keys/status");
-  const data = await r.json();
-  status.textContent = data.places_configured ? "✔ Key saved" : "✘ Key not set";
+  const data = await (await fetch("/api/setup/api-keys/status")).json();
+  status.textContent = data.places_configured ? "✔ Key valid" : "✘ Key not set";
   status.style.color = data.places_configured ? "var(--color-accent)" : "var(--color-danger)";
 });
 </script>

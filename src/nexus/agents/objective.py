@@ -98,12 +98,14 @@ async def objective_draft_proposal(state: WeekendPlanState) -> dict:
     registry = state["tool_registry"]
     home = user.home_coordinates if user else (37.7749, -122.4194)
 
-    candidates = await registry.activity.search_activities(
+    candidates_with_source = await registry.activity.search_activities(
         home,
         requirements.search_radius_miles,
         requirements.activity_types,
         fitness_level=user.fitness_level if user else "intermediate",
     )
+    # Unpack the (results, data_source) tuple — ISSUE-01
+    candidates, activity_data_source = candidates_with_source
 
     proposal_history = state.get("proposal_history", [])
     proposed_names = {p.activity_name for p in proposal_history}
@@ -122,9 +124,23 @@ async def objective_draft_proposal(state: WeekendPlanState) -> dict:
     router = state["model_router"]
     model = router.get_model("objective")
 
+    from nexus.config import NexusConfig
+    _config = state.get("config")
+    # ISSUE-09: Hard cap at 8 candidates to keep prompt within context window
+    _MAX_LLM_CANDIDATES = 8
+    _max_candidates = min(
+        _config.planning.max_candidate_activities
+        if isinstance(_config, NexusConfig)
+        else 20,
+        _MAX_LLM_CANDIDATES,
+    )
+
+    # ISSUE-09: Include description in candidates_text so LLM can differentiate
+    # activities with similar names. Preserve fitness-aware sort order from search.
     candidates_text = "\n".join(
-        f"{i}: {c.name} | {c.activity_type} | {c.difficulty} | {c.distance_miles:.1f}mi"
-        for i, c in enumerate(candidates[:12])
+        f"{i}: {c.name} | {c.activity_type} | {c.difficulty} | "
+        f"{c.distance_miles:.1f}mi | desc={c.description[:80] if c.description else 'n/a'}"
+        for i, c in enumerate(candidates[:_max_candidates])
     )
     previous_proposals = [p.activity_name for p in proposal_history]
 
@@ -163,6 +179,7 @@ async def objective_draft_proposal(state: WeekendPlanState) -> dict:
         "primary_activity": proposal,
         "proposal_history": [proposal],
         "current_phase": "reviewing",
+        "activity_data_source": activity_data_source,  # ISSUE-01/ISSUE-14
         "negotiation_log": [
             f"objective: drafted '{proposal.activity_name}' "
             f"(attempt {len(proposal_history) + 1})"

@@ -14,13 +14,15 @@ from __future__ import annotations
 
 from nexus.tools.models import Coordinates, CoverageEstimate
 
-# Distance threshold: roads within this → likely has service
-ROAD_PROXIMITY_THRESHOLD_MILES = 0.5
+# Default distance threshold: roads within this → likely has service.
+# Overridden at call-site by config.planning.cell_coverage_road_proximity_miles.
+ROAD_PROXIMITY_THRESHOLD_MILES = 1.0
 
 
 async def estimate_cell_coverage(
     coordinates: Coordinates,
     routing_tool: object,
+    road_proximity_threshold_miles: float = ROAD_PROXIMITY_THRESHOLD_MILES,
 ) -> CoverageEstimate:
     """
     Estimate cell coverage at a location using road proximity heuristic.
@@ -28,6 +30,8 @@ async def estimate_cell_coverage(
     Args:
         coordinates: (lat, lon) of the location to check.
         routing_tool: a RoutingTool implementation with nearest_road_distance().
+        road_proximity_threshold_miles: roads closer than this are treated as
+            "has coverage". Configurable via planning.cell_coverage_road_proximity_miles.
 
     Returns:
         CoverageEstimate with has_likely_service and road_proximity_miles.
@@ -44,7 +48,7 @@ async def estimate_cell_coverage(
             confidence="estimated",
         )
 
-    has_service = distance_miles <= ROAD_PROXIMITY_THRESHOLD_MILES
+    has_service = distance_miles <= road_proximity_threshold_miles
 
     return CoverageEstimate(
         has_likely_service=has_service,

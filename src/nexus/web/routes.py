@@ -41,14 +41,83 @@ from nexus.web.schemas import (
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Checkpoint helper — ISSUE-04
+# ─────────────────────────────────────────────────────────────────────────────
+
+# All custom types that the msgpack deserializer is allowed to restore.
+# Keeping this list complete prevents LangGraph 'unregistered type' warnings.
+_ALLOWED_MSGPACK_MODULES = [
+    ("nexus.state.schemas", "UserProfile"),
+    ("nexus.state.schemas", "FamilyProfile"),
+    ("nexus.state.schemas", "PlanRequirements"),
+    ("nexus.state.schemas", "ActivityProposal"),
+    ("nexus.state.schemas", "FamilyActivity"),
+    ("nexus.state.schemas", "RestaurantRecommendation"),
+    ("nexus.state.schemas", "AgentVerdict"),
+    ("nexus.tools.models", "WeatherForecast"),
+    ("nexus.tools.models", "RouteResult"),
+]
+
+
+from contextlib import asynccontextmanager as _acm
+import inspect as _inspect
+
+@_acm
+async def _open_checkpointer(db_path: Path):
+    """Shared async context manager for AsyncSqliteSaver — applies the msgpack allowlist.
+
+    All five call sites in routes.py route through this helper so the allowlist
+    and path resolution are consistent (ISSUE-04).
+    """
+    from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
+
+    # Runtime version guard — allowed_msgpack_modules added post-3.0.0
+    _sig = _inspect.signature(AsyncSqliteSaver.from_conn_string)
+    if "allowed_msgpack_modules" in _sig.parameters:
+        async with AsyncSqliteSaver.from_conn_string(
+            str(db_path),
+            allowed_msgpack_modules=_ALLOWED_MSGPACK_MODULES,
+        ) as cp:
+            yield cp
+    else:
+        import warnings
+        warnings.warn(
+            "AsyncSqliteSaver.from_conn_string does not accept allowed_msgpack_modules "
+            "— msgpack warnings may appear. Upgrade langgraph-checkpoint-sqlite>=3.0.0.",
+            stacklevel=2,
+        )
+        async with AsyncSqliteSaver.from_conn_string(str(db_path)) as cp:
+            yield cp
+
+
 # In-memory concurrency control (not persisted across restarts)
 # NOTE: locks and tasks are not persisted across server restarts
 _active_locks: dict[str, asyncio.Lock] = {}
 _active_tasks: dict[str, asyncio.Task] = {}  # for stop_planning cancellation (task 6.12)
 _plan_contexts: dict[str, dict] = {}  # lightweight context for planning page display
+_plan_context_timestamps: dict[str, float] = {}  # ISSUE-08: TTL eviction support
 
 
 def _get_config(request: Request) -> NexusConfig:
+    return request.app.state.config
+
+
+def _home_area_label(config: NexusConfig) -> str | None:
+    """ISSUE-12: Human-readable location label for the planning page.
+
+    Priority: home_address first char → lat/lon string → None (hide the field).
+    The default SF placeholder coordinates (37.7749, -122.4194) are suppressed
+    so a fresh profile without real coordinates shows nothing rather than
+    'San Francisco'.
+    """
+    if config.user.home_address:
+        return config.user.home_address.split(",")[0].strip()
+    lat, lon = config.user.home_coordinates
+    _SF_DEFAULT = (37.7749, -122.4194)
+    if (lat, lon) != _SF_DEFAULT:
+        return f"{lat:.2f}°N, {abs(lon):.2f}°{'W' if lon < 0 else 'E'}"
+    return None
     return request.app.state.config
 
 
@@ -154,9 +223,7 @@ async def plan_detail_page(request: Request, request_id: str) -> HTMLResponse:
         try:
             from nexus.graph.planner import build_planning_graph
 
-            async with __import__(
-                "langgraph.checkpoint.sqlite.aio", fromlist=["AsyncSqliteSaver"]
-            ).AsyncSqliteSaver.from_conn_string(str(checkpoint_path)) as checkpointer:
+            async with _open_checkpointer(checkpoint_path) as checkpointer:
                 graph = build_planning_graph(checkpointer=checkpointer)
                 thread_config = {"configurable": {"thread_id": request_id}}
                 snapshot = await graph.aget_state(thread_config)
@@ -202,6 +269,14 @@ async def start_planning(request: Request, body: PlanRequest) -> PlanResponse:
     _active_locks[request_id] = lock
 
     # Store lightweight context for the planning page to display as inputs
+    import time as _time
+    _now_ts = _time.monotonic()
+    # ISSUE-08: Evict stale contexts older than 2 hours before inserting
+    _stale = [k for k, t in _plan_context_timestamps.items() if _now_ts - t > 7200]
+    for _sk in _stale:
+        _plan_contexts.pop(_sk, None)
+        _plan_context_timestamps.pop(_sk, None)
+
     _plan_contexts[request_id] = {
         "intent": body.intent.strip(),
         "target_date": target_date.strftime("%A, %B %-d, %Y") if target_date else "This weekend",
@@ -209,13 +284,14 @@ async def start_planning(request: Request, body: PlanRequest) -> PlanResponse:
         "fitness_level": config.user.fitness_level.capitalize(),
         "dietary_restrictions": config.user.dietary_restrictions or [],
         "max_driving_minutes": config.user.max_driving_minutes,
-        "home_area": (config.user.home_address.split(",")[0].strip() if config.user.home_address else None),
+        "home_area": _home_area_label(config),  # ISSUE-12
         "family_members": [
             {"name": m.name, "age": m.age}
             for m in config.family.members
         ],
         "preferred_activities": config.user.preferred_activities or [],
     }
+    _plan_context_timestamps[request_id] = _time.monotonic()
 
     # Record plan start for stats tracking (UX §9.4, task 6.17)
     from nexus.stats import record_plan_started
@@ -245,6 +321,12 @@ async def start_planning(request: Request, body: PlanRequest) -> PlanResponse:
             finally:
                 _active_locks.pop(request_id, None)
                 _active_tasks.pop(request_id, None)
+                # ISSUE-08: Remove context entry once planning run lifecycle ends
+                _plan_contexts.pop(request_id, None)
+                _plan_context_timestamps.pop(request_id, None)
+                # ISSUE-08: Remove context entry once planning run lifecycle ends
+                _plan_contexts.pop(request_id, None)
+                _plan_context_timestamps.pop(request_id, None)
 
     task = asyncio.create_task(_run())
     _active_tasks[request_id] = task
@@ -269,17 +351,16 @@ async def approve_plan(request: Request, request_id: str) -> ApproveResponse:
     if request_id in _active_locks and _active_locks[request_id].locked():
         raise HTTPException(status_code=409, detail="Planning run is still in progress")
 
+    import nexus.runtime as runtime
     from nexus.graph.planner import build_planning_graph
     from nexus.llm.router import ModelRouter
     from nexus.tools.registry import build_registry
 
-    async with __import__("langgraph.checkpoint.sqlite.aio", fromlist=["AsyncSqliteSaver"]).AsyncSqliteSaver.from_conn_string(
-        str(checkpoint_path)
-    ) as checkpointer:
+    async with _open_checkpointer(checkpoint_path) as checkpointer:
         graph = build_planning_graph(
             checkpointer=checkpointer,
-            model_router=ModelRouter(config),
-            tool_registry=build_registry(config),
+            model_router=runtime.model_router or ModelRouter(config),
+            tool_registry=runtime.tool_registry or build_registry(config),
             nexus_config=config,
         )
         thread_config = {"configurable": {"thread_id": request_id}}
@@ -322,14 +403,10 @@ async def reject_plan(request: Request, request_id: str, body: RejectRequest) ->
     config = _get_config(request)
     checkpoint_path = config.paths.checkpoints_dir / "nexus.db"
 
-    AsyncSqliteSaver = __import__(
-        "langgraph.checkpoint.sqlite.aio", fromlist=["AsyncSqliteSaver"]
-    ).AsyncSqliteSaver
-
     # ── 1. Read current checkpoint state ────────────────────────────────────
     current_count: int = 0
     last_feedback: str = ""
-    async with AsyncSqliteSaver.from_conn_string(str(checkpoint_path)) as _ckpt:
+    async with _open_checkpointer(checkpoint_path) as _ckpt:
         from nexus.graph.planner import build_planning_graph as _bpg
 
         _g = _bpg(checkpointer=_ckpt)
@@ -371,7 +448,8 @@ async def reject_plan(request: Request, request_id: str, body: RejectRequest) ->
             _progress._completed = []
             _progress._iteration = 1
 
-            async with AsyncSqliteSaver.from_conn_string(str(checkpoint_path)) as _ckpt2:
+            import nexus.runtime as _runtime
+            async with _open_checkpointer(checkpoint_path) as _ckpt2:
                 from nexus.graph.planner import build_planning_graph as _bpg2
                 from nexus.llm.router import ModelRouter as _MR
                 from nexus.tools.registry import build_registry as _br
@@ -379,8 +457,8 @@ async def reject_plan(request: Request, request_id: str, body: RejectRequest) ->
 
                 g2 = _bpg2(
                     checkpointer=_ckpt2,
-                    model_router=_MR(config),
-                    tool_registry=_br(config),
+                    model_router=_runtime.model_router or _MR(config),
+                    tool_registry=_runtime.tool_registry or _br(config),
                     nexus_config=config,
                 )
                 thread_cfg = {"configurable": {"thread_id": request_id}}
@@ -421,9 +499,9 @@ async def reject_plan(request: Request, request_id: str, body: RejectRequest) ->
                             await _progress.on_node_complete(_nname)
 
                 try:
-                    await asyncio.wait_for(_stream_resume(), timeout=900.0)
+                    await asyncio.wait_for(_stream_resume(), timeout=90.0)
                 except asyncio.TimeoutError:
-                    await _progress.on_planning_error("timeout", "Re-planning timed out after 15 minutes")
+                    await _progress.on_planning_error("timeout", "Re-planning timed out after 90 seconds")
                     return
                 except Exception as _exc:
                     logger.error("Replan stream error for %s: %s", request_id, _exc)
@@ -469,9 +547,7 @@ async def add_constraint(
     config = _get_config(request)
     checkpoint_path = config.paths.checkpoints_dir / "nexus.db"
 
-    async with __import__("langgraph.checkpoint.sqlite.aio", fromlist=["AsyncSqliteSaver"]).AsyncSqliteSaver.from_conn_string(
-        str(checkpoint_path)
-    ) as checkpointer:
+    async with _open_checkpointer(checkpoint_path) as checkpointer:
         from nexus.graph.planner import build_planning_graph
 
         graph = build_planning_graph(checkpointer=checkpointer)
@@ -517,9 +593,7 @@ async def submit_feedback(
         plan_proposal = None
         plan_date = None
         if checkpoint_path2.exists():
-            async with __import__(
-                "langgraph.checkpoint.sqlite.aio", fromlist=["AsyncSqliteSaver"]
-            ).AsyncSqliteSaver.from_conn_string(str(checkpoint_path2)) as _ckpt:
+            async with _open_checkpointer(checkpoint_path2) as _ckpt:
                 from nexus.graph.planner import build_planning_graph as _bpg
 
                 _g = _bpg(checkpointer=_ckpt)
@@ -656,7 +730,20 @@ async def setup_profile(request: Request, body: SetupRequest) -> dict:
         },
         "family": {"members": []},
         "models": {"local_model": "qwen3.5:9b"},
-        "planning": {"max_iterations": 3},
+        "planning": {
+            "max_iterations": body.max_iterations,
+            "precipitation_threshold_pct": body.precipitation_threshold_pct,
+            "aqi_threshold": body.aqi_threshold,
+            "min_sunset_buffer_minutes": body.min_sunset_buffer_minutes,
+            "cell_coverage_road_proximity_miles": body.cell_coverage_road_proximity_miles,
+            "require_teen_cell_service": body.require_teen_cell_service,
+            "earliest_departure_hour": body.earliest_departure_hour,
+            "max_day_hours": body.max_day_hours,
+            "restaurant_search_radius_miles": body.restaurant_search_radius_miles,
+            "marginal_weather_precip_pct": body.marginal_weather_precip_pct,
+            "hospital_search_radius_miles": body.hospital_search_radius_miles,
+            "max_candidate_activities": body.max_candidate_activities,
+        },
     }
 
     config.paths.base_dir.mkdir(parents=True, exist_ok=True)
@@ -785,11 +872,7 @@ async def websocket_plan_progress(websocket: WebSocket, request_id: str) -> None
 
                             _cfg: NexusConfig = websocket.app.state.config
                             _cp_path = _cfg.paths.checkpoints_dir / "nexus.db"
-                            AsyncSqliteSaver = __import__(
-                                "langgraph.checkpoint.sqlite.aio",
-                                fromlist=["AsyncSqliteSaver"],
-                            ).AsyncSqliteSaver
-                            async with AsyncSqliteSaver.from_conn_string(str(_cp_path)) as _saver:
+                            async with _open_checkpointer(_cp_path) as _saver:
                                 _graph = build_planning_graph(checkpointer=_saver)
                                 _tc = {"configurable": {"thread_id": request_id}}
                                 _state = await _graph.aget_state(_tc)

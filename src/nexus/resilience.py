@@ -136,6 +136,9 @@ class GracefulDegradation:
         import httpx  # local import to avoid circular
 
         if isinstance(exc, httpx.HTTPStatusError):
-            # 401/403 = auth/config error, not transient
-            return exc.response.status_code in (401, 403)
+            # 401/403 = auth/config error; 429 = rate-limited — retrying worsens it
+            return exc.response.status_code in (401, 403, 429)
+        # ConnectError = server definitively unreachable; immediate retry is futile
+        if isinstance(exc, httpx.ConnectError):
+            return True
         return False

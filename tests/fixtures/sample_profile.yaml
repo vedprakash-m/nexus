@@ -51,6 +51,27 @@ tools:
 planning:
   max_iterations: 3
   default_search_radius_miles: 50.0
+  # Weather thresholds — raise to accept worse conditions, lower to be stricter.
   precipitation_threshold_pct: 40
   aqi_threshold: 100
   min_sunset_buffer_minutes: 30
+  # Cell coverage: distance (miles) from nearest road below which coverage is assumed.
+  # 1.0 covers most PNW trailheads. Set to 0.0 to disable the constraint entirely.
+  cell_coverage_road_proximity_miles: 1.0
+  # Set true only if a teen family member should also enforce cell coverage
+  # (in addition to members who have requires_cell_service: true individually).
+  require_teen_cell_service: false
+  # Logistics: set earliest_departure_hour: 0 to allow pre-dawn starts.
+  earliest_departure_hour: 6
+  # Set max_day_hours: 24 to effectively disable the day-length check.
+  max_day_hours: 12.0
+  # Restaurant search radius from the activity endpoint.
+  # Raise to 30+ for remote trailheads where you'll stop in a town on the way home.
+  restaurant_search_radius_miles: 10.0
+  # Safety: precip % at or above which hospital proximity is also checked (family plans).
+  # Set to 100 to skip the hospital check entirely.
+  marginal_weather_precip_pct: 30
+  # Safety: radius for hospital proximity check when weather is marginal.
+  hospital_search_radius_miles: 30.0
+  # Number of activity candidates the LLM sees and ranks. More = more variety.
+  max_candidate_activities: 20

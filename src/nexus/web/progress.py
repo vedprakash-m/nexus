@@ -103,6 +103,24 @@ class PlanningProgress:
         )
         await self._broadcast(event)
 
+    async def on_rejection_decided(self, reason: str, iteration: int) -> None:
+        """ISSUE-13: Called when check_consensus determines a rejection.
+
+        Broadcasts a PHASE_CHANGED event with context.rejection_reason so the
+        browser can render 'That didn't work because: <reason>' before the next
+        draft_proposal starts.
+        """
+        event = self._build(
+            EventType.PHASE_CHANGED,
+            {
+                "phase": "check_consensus",
+                "status": "rejected",
+                "message": f"Revision needed (iteration {iteration})",
+                "context": {"rejection_reason": reason},
+            },
+        )
+        await self._broadcast(event)
+
     async def on_plan_ready(self, html_fragment: str) -> None:
         """Called when synthesize_plan produces output."""
         event = self._build(

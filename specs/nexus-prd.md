@@ -1,7 +1,7 @@
 # Product Requirements Document: Project Nexus
 
-> **Version:** 1.6.0-draft  
-> **Status:** Draft - Incorporating Review Feedback  
+> **Version:** 1.6.1  
+> **Status:** Stable  
 > **Author:** Ved  
 > **Last Updated:** 2026-04-18
 
@@ -536,7 +536,7 @@ The "local-first" claim requires precision: LLM inference is fully local; extern
 
 | Metric | Target | Rationale |
 |--------|--------|-----------|
-| **Plan Generation Time** | < 3 minutes | User should not wait longer than making coffee |
+| **Plan Generation Time** | ≤ 90 seconds | Hard budget enforced by `asyncio.wait_for` in `runner.py`. Any run exceeding 90s is classified as a user-trust failure, not just a performance issue. TTFT (first WebSocket progress event) ≤ 1s; degraded path (static fallback) ≤ 20s. |
 | **Checkpoint Save** | < 100ms | Non-blocking state persistence |
 | **Resume from Checkpoint** | < 5 seconds | Fast recovery on restart |
 | **Memory Usage** | < 16GB RAM active | Allow headroom on 36GB M-series Mac |
@@ -573,9 +573,14 @@ The following software must be present for Nexus to function. The launcher scrip
 | Requirement | Specification |
 |-------------|---------------|
 | **Graceful Degradation** | If an external API fails, continue with cached data annotated with staleness age. Agents governing hard constraints halt planning if they have no data (live or cached). Agents governing only soft constraints substitute a conservative default assumption and annotate the output. |
+| **Activity Data Fallback** | When live Overpass activity data is unavailable, the system falls back through: (1) stale local cache → (2) curated PNW static dataset (for users within ~200 miles of Seattle) → (3) estimated template entries derived from the user's coordinates. Template-path plans skip the full reviewer pipeline (which would produce meaningless verdicts against fabricated coordinates) and proceed directly to synthesis. The plan includes a plain-English note indicating which data source was used. |
+| **Geographic Coverage** | Activity fallback covers PNW users fully. Users outside PNW receive template-based estimated activities so planning always completes rather than aborting with an error. |
+| **Terminal Error Classification** | HTTP 429 (rate limit) and `ConnectError` (server unreachable) are terminal errors — the system does not retry these; it falls back immediately to cache or static data. HTTP 5xx and timeout errors are transient and trigger up to 3 retries with exponential backoff. |
+| **Overpass Circuit Breaker** | After 3 consecutive Overpass failures within a 2-minute window, a 10-minute cooldown is activated. Subsequent requests skip the live fetch entirely, avoiding repeated 8-second timeout penalties during extended outages. |
 | **Idempotent Checkpoints** | Re-running from checkpoint produces identical results |
 | **Error Recovery** | Agent failures don't crash the system; supervisor retries up to 2x before falling back to cached data or conservative default |
 | **Audit Trail** | All decisions, data sources, and cache ages logged for debugging and user transparency |
+| **Renderer Fallback** | If the full Jinja2 plan renderer fails, a lightweight minimal renderer produces a degraded but readable plan HTML rather than surfacing a system error to the user. |
 
 ### 10.5 Extensibility
 
@@ -608,6 +613,7 @@ The following software must be present for Nexus to function. The launcher scrip
 | **Configurable providers** | Each data category has a configurable provider, swappable without code changes. Defaults prioritize privacy; users can opt into higher-quality paid alternatives |
 | **Aggressive caching** | All API responses are cached locally with appropriate time-to-live values to minimize external calls and enable offline re-planning |
 | **Graceful failure** | If an API is unreachable: use cached data with age annotation for soft constraints; halt planning for hard constraints with no data |
+| **Tool output sanitization** | All text received from external APIs is passed through an injection-pattern filter before being forwarded to the LLM. Text that matches prompt-injection patterns (e.g., "ignore previous instructions", "act as") is replaced with `[Content removed]` and a warning is logged. This prevents malicious content embedded in third-party API responses from hijacking the planning LLM. |
 
 > **Technical implementation:** Specific API providers, cache TTLs, Protocol-based abstractions, and provider implementations are specified in the [Technical Specification](nexus-tech-spec.md) §7 and §11.
 
@@ -752,6 +758,8 @@ The MVP is considered complete when all of the following are true:
 | **Iteration** | One complete cycle through the drafting → validation → revision loop |
 | **Checkpoint** | A saved snapshot of planning state enabling pause/resume functionality |
 | **Trade-off Disclosure** | The plain-English explanation of what was sacrificed and why in the final plan |
+| **Activity Data Source** | The origin of activity candidates used in planning: `live` (Overpass API), `cached` (stale local cache), `static_pnw` (curated PNW dataset), or `static_template` (estimated entries derived from user coordinates). Surfaced in the plan narrative when anything other than `live` is used. |
+| **Terminal Error** | An API failure that should not be retried (e.g., HTTP 429, ConnectError). The system falls back to cache or static data immediately rather than wasting retry budget. |
 
 ---
 
@@ -762,10 +770,11 @@ The MVP is considered complete when all of the following are true:
 | 0.1.0 | 2026-04-18 | Ved | Initial draft based on ideation session |
 | 0.2.0 | 2026-04-18 | Ved | Incorporated ChatGPT product feedback: user-outcome-first executive summary; dual-purpose declaration; constraint hierarchy; two-speed UX model; trust-first output; best-compromise failure mode; narrowed MVP; fixed NEEDS_INFO routing; clarified privacy claim; product behavior metrics |
 | 0.3.0 | 2026-04-18 | Ved | Incorporated Gemini product feedback: showcase boundary (code quality, not UX exposure); negotiation log moved to `--debug` only; primary output changed from Markdown to local HTML opened in browser; `[UNVERIFIED]` draft replaced with live status messages in terminal; user-facing copy purged of agent names, confidence %, iteration counts; no-perfect-plan output changed from 3-option menu to single confident recommendation; rejection flow designed to be effortless |
-| 0.4.0 | 2026-04-18 | Ved | Incorporated Perplexity product feedback: §6.1 architecture risk note mapping 7 agents to 4 product-facing responsibilities; `nexus feedback` post-trip command added as P0 (F17); §8.2 post-MVP gate requiring 4 proven weekends before new features are scoped; "why this and not that" optional disclosure added to approved plan output artifact; "Time to Quick Draft" renamed "Time to First Response" (terminal status line, not draft plan); "Post-Trip Feedback Rate" and "Post-Trip Success Rate" added as first-class product metrics |
-| 0.5.0 | 2026-04-18 | Ved | Separation of concerns cleanup: removed ~500 lines of technical implementation details (agent specs, Pydantic schemas, state reducers, execution loop diagrams) — migrated to Tech Spec; removed ~130 lines of UX implementation details (HTML mockups, terminal output examples, visual design) — migrated to UX Spec; §6 rewritten as product-level "System Behavior" (constraint domains, execution flow, consensus rules); §7 simplified to "Data the System Manages"; §9 rewritten as product-level UX requirements; §11 simplified to integration principles; added §5.3 constraint conflict resolution priority; added §13.3 MVP exit criteria; added §6.4 human rejection loop limits; resolved open questions Q1–Q5, Q7, Q11; updated glossary to use product terminology; updated companion doc links |
-| 0.6.0 | 2026-04-18 | Ved | Interaction model pivot: CLI-first replaced with local web UI (single browser tab at `localhost`). Rationale: eliminates split-surface interaction (terminal → browser → terminal), enables mid-planning constraint injection, makes approve/reject native, and allows family members to view plans without terminal skills. §5.1 updated with collaborative planning innovation; §9 rewritten for browser-first experience; §8.1 F11 changed from HTML file to web UI; F21 Mobile Companion removed (localhost already accessible on phone); §13 scope updated; §13.3 MVP exit criteria updated to include mid-planning input; Q6 resolved (browser is the notification surface) |
-| 0.7.0 | 2026-04-18 | Ved | Activity-flexible MVP: replaced hiking-only scope with support for 5 outdoor activity types (hiking/trail running, beach/waterfront, park/picnic/playground, biking, city exploring). Users select preferred activities during setup. §3.1 persona broadened; §3.2 added beach and city scenarios; §4.3 workflow generalized; §7 family profiles use `comfort_distance` instead of `hiking_distance`; §9.5 plan content generalized from trail-specific to activity-generic; §13 scope rewritten; Q8 updated for multi-activity data sources |
+| 0.4.0 | 2026-04-18 | Ved | Incorporated Perplexity product feedback: §6.1 architecture risk note mapping 7 agents to 4 product-facing responsibilities; `nexus feedback` post-trip command added as P0 (F17); §8.2 post-MVP gate requiring 4 proven weekends before new features are scoped; "why this and not that" optional disclosure added to approved plan output artifact; "Post-Trip Feedback Rate" and "Post-Trip Success Rate" added as first-class product metrics |
+| 0.5.0 | 2026-04-18 | Ved | Separation of concerns cleanup: removed ~500 lines of technical implementation details; removed ~130 lines of UX implementation details; §6 rewritten as product-level "System Behavior"; §9 rewritten as product-level UX requirements |
+| 0.6.0 | 2026-04-18 | Ved | Interaction model pivot: CLI-first replaced with local web UI (single browser tab at localhost). |
+| 0.7.0 | 2026-04-18 | Ved | Activity-flexible MVP: replaced hiking-only scope with support for 5 outdoor activity types. |
+| 1.6.1 | 2026-04-25 | Engineering | Production-hardening pass: geo-coverage, planning timeout, security sanitization, graceful-degradation rules — see §6.3, §10.2, §10.4, §11.2. |
 
 ---
 

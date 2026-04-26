@@ -56,16 +56,28 @@ async def meteorology_review(state: WeekendPlanState) -> dict:
     forecast.aqi = aqi
     forecast.daylight = daylight
 
+    # ── Read configurable thresholds ────────────────────────────────────────
+    from nexus.config import NexusConfig
+    _config = state.get("config")
+    if isinstance(_config, NexusConfig):
+        _precip_threshold = float(_config.planning.precipitation_threshold_pct)
+        _aqi_threshold = _config.planning.aqi_threshold
+        _sunset_buffer = _config.planning.min_sunset_buffer_minutes
+    else:
+        _precip_threshold = PRECIP_THRESHOLD
+        _aqi_threshold = AQI_THRESHOLD
+        _sunset_buffer = SUNSET_BUFFER_MINUTES
+
     # ── Threshold checks ───────────────────────────────────────────────────
     rejections: list[str] = []
 
-    if forecast.precipitation_probability > PRECIP_THRESHOLD:
+    if forecast.precipitation_probability > _precip_threshold:
         rejections.append(
-            f"Rain probability {forecast.precipitation_probability:.0f}% exceeds {PRECIP_THRESHOLD:.0f}% threshold"
+            f"Rain probability {forecast.precipitation_probability:.0f}% exceeds {_precip_threshold:.0f}% threshold"
         )
 
-    if aqi.aqi > AQI_THRESHOLD:
-        rejections.append(f"Air quality index {aqi.aqi} exceeds {AQI_THRESHOLD} threshold")
+    if aqi.aqi > _aqi_threshold:
+        rejections.append(f"Air quality index {aqi.aqi} exceeds {_aqi_threshold} threshold")
 
     if forecast.lightning_risk and proposal.has_exposed_sections:
         rejections.append("Lightning risk with exposed trail sections — unsafe conditions")
@@ -76,15 +88,20 @@ async def meteorology_review(state: WeekendPlanState) -> dict:
         # Normalise both sides to naive datetimes for comparison (strip tzinfo if present)
         activity_end_naive = activity_end.replace(tzinfo=None) if activity_end.tzinfo else activity_end
         sunset_naive = daylight.sunset.replace(tzinfo=None) if daylight.sunset.tzinfo else daylight.sunset
-        latest_end = sunset_naive - timedelta(minutes=SUNSET_BUFFER_MINUTES)
+        latest_end = sunset_naive - timedelta(minutes=_sunset_buffer)
         if activity_end_naive > latest_end:
             rejections.append(
                 f"Activity ends at {activity_end_naive.strftime('%H:%M')} — "
-                f"within {SUNSET_BUFFER_MINUTES} minutes of sunset ({sunset_naive.strftime('%H:%M')})"
+                f"within {_sunset_buffer} minutes of sunset ({sunset_naive.strftime('%H:%M')})"
             )
 
     if rejections:
-        suggestion = _suggest_alternative_window(forecast, daylight)
+        suggestion = _suggest_alternative_window(
+            forecast, daylight,
+            precip_threshold=_precip_threshold,
+            aqi_threshold=_aqi_threshold,
+            sunset_buffer=_sunset_buffer,
+        )
         return {
             "current_verdicts": [
                 AgentVerdict(
@@ -122,7 +139,13 @@ async def meteorology_review(state: WeekendPlanState) -> dict:
     }
 
 
-def _suggest_alternative_window(forecast: WeatherForecast, daylight: DaylightWindow) -> str:
+def _suggest_alternative_window(
+    forecast: WeatherForecast,
+    daylight: DaylightWindow,
+    precip_threshold: float = PRECIP_THRESHOLD,
+    aqi_threshold: int = AQI_THRESHOLD,
+    sunset_buffer: int = SUNSET_BUFFER_MINUTES,
+) -> str:
     """
     Generate a concrete revision recommendation for the objective agent.
 
@@ -131,19 +154,19 @@ def _suggest_alternative_window(forecast: WeatherForecast, daylight: DaylightWin
     """
     suggestions = []
 
-    if forecast.precipitation_probability > PRECIP_THRESHOLD:
+    if forecast.precipitation_probability > precip_threshold:
         suggestions.append(
             "Consider early morning start (before 9am) when precipitation probability is lower"
         )
 
-    if forecast.aqi and forecast.aqi.aqi > AQI_THRESHOLD:
+    if forecast.aqi and forecast.aqi.aqi > aqi_threshold:
         suggestions.append(
             "Consider a coastal or lower-elevation alternative route"
         )
 
     if daylight.sunset:
         latest_start = daylight.sunset - timedelta(
-            minutes=SUNSET_BUFFER_MINUTES + 60 * 6  # assume ~6hr activity
+            minutes=sunset_buffer + 60 * 6  # assume ~6hr activity
         )
         suggestions.append(
             f"Start no later than {latest_start.strftime('%H:%M')} to return before sunset"

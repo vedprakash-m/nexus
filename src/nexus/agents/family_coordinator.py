@@ -58,7 +58,20 @@ async def family_coordinator_review(state: WeekendPlanState) -> dict:
     # ── Cell coverage estimate ─────────────────────────────────────────────
     from nexus.tools.providers.coverage import estimate_cell_coverage
 
-    coverage = await estimate_cell_coverage(proposal.location_coordinates, registry.routing)
+    from nexus.config import NexusConfig
+    _config = state.get("config")
+    if isinstance(_config, NexusConfig):
+        _coverage_threshold = _config.planning.cell_coverage_road_proximity_miles
+        _require_teen_cell = _config.planning.require_teen_cell_service
+    else:
+        _coverage_threshold = 1.0
+        _require_teen_cell = False
+
+    coverage = await estimate_cell_coverage(
+        proposal.location_coordinates,
+        registry.routing,
+        road_proximity_threshold_miles=_coverage_threshold,
+    )
 
     # ── Nearby places for family alternatives ─────────────────────────────
     nearby = await registry.places.search_nearby(
@@ -74,7 +87,7 @@ async def family_coordinator_review(state: WeekendPlanState) -> dict:
     )
     requires_cell = any(getattr(m, "requires_cell_service", False) for m in members)
 
-    if (has_teen or requires_cell) and not coverage.has_likely_service:
+    if ((_require_teen_cell and has_teen) or requires_cell) and not coverage.has_likely_service:
         return {
             "current_verdicts": [
                 AgentVerdict(

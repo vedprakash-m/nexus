@@ -64,7 +64,8 @@ def _objective_state(
         candidates = [_make_activity_result("Windy Hill Preserve")]
 
     mock_activity_tool = MagicMock()
-    mock_activity_tool.search_activities = AsyncMock(return_value=candidates)
+    # ISSUE-01: search_activities now returns (list, data_source) tuple
+    mock_activity_tool.search_activities = AsyncMock(return_value=(candidates, "live"))
 
     mock_routing = MagicMock()
     mock_registry = MagicMock()
@@ -176,7 +177,7 @@ class TestObjectiveDraftProposal:
         state["proposal_history"] = [previously_proposed]
         # Activity candidate has the same name → should be excluded → 0 candidates remain
         state["tool_registry"].activity.search_activities = AsyncMock(
-            return_value=[_make_activity_result("Windy Hill Preserve")]
+            return_value=([_make_activity_result("Windy Hill Preserve")], "live")
         )
 
         with pytest.raises(HardConstraintDataUnavailable) as exc_info:

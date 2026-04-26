@@ -80,25 +80,62 @@ class GooglePlaces:
         return await self._search(params)
 
     async def _search(self, params: dict) -> list[PlaceResult]:
-        try:
-            async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-                resp = await client.get(PLACES_BASE, params=params)
-                if resp.status_code in (401, 403):
-                    logger.error("Google Places API auth failed — check GOOGLE_PLACES_API_KEY")
-                    return []
-                resp.raise_for_status()
-                data = resp.json()
-                status = data.get("status", "")
-                if status in ("REQUEST_DENIED", "INVALID_REQUEST"):
-                    logger.error("Google Places error: %s — %s", status, data.get("error_message", ""))
-                    return []
-                if status == "ZERO_RESULTS":
-                    return []
-        except httpx.HTTPError as e:
-            logger.warning("Google Places API error: %s", e)
-            return []
+        from nexus.resilience import GracefulDegradation
+        from nexus.tools.sanitize import sanitize_activity_name
 
-        return _parse_google_results(data.get("results", []))
+        _delays = [0.5, 1.0]  # Two retries (3 total attempts)
+        last_exc: Exception | None = None
+
+        for attempt, delay in enumerate([None] + _delays):
+            if delay is not None:
+                import asyncio
+                await asyncio.sleep(delay)
+
+            try:
+                async with httpx.AsyncClient(timeout=TIMEOUT) as client:
+                    resp = await client.get(PLACES_BASE, params=params)
+                    if resp.status_code in (401, 403):
+                        logger.error("Google Places API auth failed — check GOOGLE_PLACES_API_KEY")
+                        return []
+                    if resp.status_code == 429:
+                        # Rate-limited: terminal
+                        logger.warning("Google Places rate-limited (429)")
+                        return []
+                    resp.raise_for_status()
+                    data = resp.json()
+                    status = data.get("status", "")
+                    if status in ("REQUEST_DENIED", "INVALID_REQUEST"):
+                        logger.error(
+                            "Google Places error: %s — %s",
+                            status, data.get("error_message", ""),
+                        )
+                        return []
+                    if status == "ZERO_RESULTS":
+                        return []
+                    raw = _parse_google_results(data.get("results", []))
+                    # ISSUE-16: sanitize place names
+                    cleaned: list[PlaceResult] = []
+                    for place in raw:
+                        safe_name = sanitize_activity_name(place.name)
+                        if safe_name is None:
+                            continue  # Drop places with injected names
+                        cleaned.append(place.model_copy(update={"name": safe_name}))
+                    return cleaned
+
+            except (httpx.ConnectError, httpx.TimeoutException) as exc:
+                last_exc = exc
+                if GracefulDegradation._is_terminal_error(exc):
+                    logger.warning("Google Places: terminal error: %s", exc)
+                    break
+                logger.warning("Google Places: transient error (attempt %d): %s", attempt + 1, exc)
+            except httpx.HTTPError as exc:
+                last_exc = exc
+                logger.warning("Google Places: HTTP error: %s", exc)
+                break  # Non-retriable HTTP errors
+
+        if last_exc:
+            logger.warning("Google Places: all attempts failed: %s", last_exc)
+        return []
 
 
 def _parse_google_results(results: list[dict]) -> list[PlaceResult]:
@@ -117,11 +154,12 @@ def _parse_google_results(results: list[dict]) -> list[PlaceResult]:
         price = price_map.get(place.get("price_level", 2), "$$")
 
         is_open = place.get("opening_hours", {}).get("open_now", True)
+        name = place.get("name", "")
 
         parsed.append(
             PlaceResult(
                 place_id=place.get("place_id", ""),
-                name=place.get("name", ""),
+                name=name,
                 location_coordinates=(lat, lon),
                 address=place.get("vicinity", ""),
                 category=category,
