@@ -36,6 +36,7 @@ async def _lifespan(app: FastAPI):
 
     async def _evict_stale_contexts() -> None:
         import time as _time
+
         while True:
             await _asyncio.sleep(1800)  # every 30 minutes
             _now = _time.monotonic()
@@ -63,7 +64,7 @@ def create_app(config: NexusConfig) -> FastAPI:
         title="Nexus",
         description="Local-first weekend planning assistant",
         version="0.1.0",
-        docs_url=None,   # No Swagger — local tool
+        docs_url=None,  # No Swagger — local tool
         redoc_url=None,  # No ReDoc
         lifespan=_lifespan,
     )

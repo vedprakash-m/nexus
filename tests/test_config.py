@@ -68,7 +68,7 @@ def test_env_parsing(tmp_path):
         "\n"
         "EMPTY_KEY=\n"
         "# Another comment\n"
-        "DOUBLE_QUOTED=\"double_quoted\"\n"
+        'DOUBLE_QUOTED="double_quoted"\n'
     )
     result = _parse_env(env_file)
     assert result["GOOGLE_PLACES_API_KEY"] == "abc123"

@@ -141,10 +141,8 @@ def _check_ollama_running() -> bool:
 def _check_model(model_name: str) -> tuple[bool, str]:
     try:
         import subprocess
-        output = subprocess.run(
-            ["ollama", "list"],
-            capture_output=True, text=True, timeout=10
-        )
+
+        output = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
         if model_name in output.stdout:
             return True, f"Model '{model_name}' is available"
         return False, f"Model '{model_name}' not found"
@@ -154,10 +152,11 @@ def _check_model(model_name: str) -> tuple[bool, str]:
 
 def _check_disk_space(base_dir: Path) -> CheckResult:
     import os
+
     try:
         base_dir.mkdir(parents=True, exist_ok=True)
         stat = os.statvfs(str(base_dir))
-        free_gb = stat.f_bavail * stat.f_frsize / (1024 ** 3)
+        free_gb = stat.f_bavail * stat.f_frsize / (1024**3)
         ok = free_gb >= 15.0
         return CheckResult(
             name="Disk space",
@@ -178,7 +177,8 @@ def _check_disk_space(base_dir: Path) -> CheckResult:
 def _check_ram() -> CheckResult:
     try:
         import psutil  # type: ignore[import-untyped]
-        available_gb = psutil.virtual_memory().available / (1024 ** 3)
+
+        available_gb = psutil.virtual_memory().available / (1024**3)
         if available_gb < 4.0:
             return CheckResult(
                 name="RAM",

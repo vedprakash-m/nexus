@@ -42,6 +42,7 @@ async def safety_review(state: WeekendPlanState) -> dict:
 
     # ── Read configurable thresholds ────────────────────────────────────────
     from nexus.config import NexusConfig
+
     _config = state.get("config")
     if isinstance(_config, NexusConfig):
         _marginal_precip = float(_config.planning.marginal_weather_precip_pct)
@@ -57,10 +58,7 @@ async def safety_review(state: WeekendPlanState) -> dict:
     # ── Hospital proximity check ───────────────────────────────────────────
     # Only runs if family is present AND weather is marginal (avoid Overpass call otherwise)
     has_family = family_profile is not None and len(getattr(family_profile, "members", [])) > 0
-    marginal_weather = (
-        weather is not None
-        and weather.precipitation_probability > _marginal_precip
-    )
+    marginal_weather = weather is not None and weather.precipitation_probability > _marginal_precip
     is_remote = False
     if has_family and marginal_weather:
         _hospital_result = await registry.activity.search_activities(
@@ -90,7 +88,9 @@ async def safety_review(state: WeekendPlanState) -> dict:
             + timedelta(minutes=driving_home_min)
         )
         # Normalise both sides to naive datetimes for comparison (strip tzinfo if present)
-        estimated_return_naive = estimated_return.replace(tzinfo=None) if estimated_return.tzinfo else estimated_return
+        estimated_return_naive = (
+            estimated_return.replace(tzinfo=None) if estimated_return.tzinfo else estimated_return
+        )
         sunset_dt = weather.daylight.sunset
         sunset_naive = sunset_dt.replace(tzinfo=None) if sunset_dt.tzinfo else sunset_dt
         sunset_deadline = sunset_naive - timedelta(minutes=_sunset_buffer)

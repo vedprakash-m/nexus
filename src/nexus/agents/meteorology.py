@@ -47,7 +47,9 @@ async def meteorology_review(state: WeekendPlanState) -> dict:
 
     weather_tool = registry.weather
     forecast, aqi, daylight = await asyncio.gather(
-        weather_tool.get_forecast(coordinates, datetime.combine(target_date, datetime.min.time(), tzinfo=timezone.utc)),
+        weather_tool.get_forecast(
+            coordinates, datetime.combine(target_date, datetime.min.time(), tzinfo=timezone.utc)
+        ),
         weather_tool.get_air_quality(coordinates),
         weather_tool.get_daylight_window(coordinates, target_date),
     )
@@ -58,6 +60,7 @@ async def meteorology_review(state: WeekendPlanState) -> dict:
 
     # ── Read configurable thresholds ────────────────────────────────────────
     from nexus.config import NexusConfig
+
     _config = state.get("config")
     if isinstance(_config, NexusConfig):
         _precip_threshold = float(_config.planning.precipitation_threshold_pct)
@@ -86,8 +89,12 @@ async def meteorology_review(state: WeekendPlanState) -> dict:
     if daylight.sunset:
         activity_end = proposal.start_time + timedelta(hours=proposal.estimated_duration_hours)
         # Normalise both sides to naive datetimes for comparison (strip tzinfo if present)
-        activity_end_naive = activity_end.replace(tzinfo=None) if activity_end.tzinfo else activity_end
-        sunset_naive = daylight.sunset.replace(tzinfo=None) if daylight.sunset.tzinfo else daylight.sunset
+        activity_end_naive = (
+            activity_end.replace(tzinfo=None) if activity_end.tzinfo else activity_end
+        )
+        sunset_naive = (
+            daylight.sunset.replace(tzinfo=None) if daylight.sunset.tzinfo else daylight.sunset
+        )
         latest_end = sunset_naive - timedelta(minutes=_sunset_buffer)
         if activity_end_naive > latest_end:
             rejections.append(
@@ -97,7 +104,8 @@ async def meteorology_review(state: WeekendPlanState) -> dict:
 
     if rejections:
         suggestion = _suggest_alternative_window(
-            forecast, daylight,
+            forecast,
+            daylight,
             precip_threshold=_precip_threshold,
             aqi_threshold=_aqi_threshold,
             sunset_buffer=_sunset_buffer,
@@ -160,9 +168,7 @@ def _suggest_alternative_window(
         )
 
     if forecast.aqi and forecast.aqi.aqi > aqi_threshold:
-        suggestions.append(
-            "Consider a coastal or lower-elevation alternative route"
-        )
+        suggestions.append("Consider a coastal or lower-elevation alternative route")
 
     if daylight.sunset:
         latest_start = daylight.sunset - timedelta(

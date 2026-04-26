@@ -15,10 +15,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────
@@ -118,9 +115,6 @@ def _make_mock_registry():
         ]
     )
     places_tool.search_nearby = AsyncMock(return_value=[])
-
-    coverage_tool = MagicMock()
-    from nexus.tools.models import CoverageEstimate
 
     mock_registry = MagicMock()
     mock_registry.weather = weather_tool
@@ -314,8 +308,11 @@ class TestSafetyE2E:
 
         state["route_data"] = {
             "home_to_activity": RouteResult(
-                duration_minutes=45.0, distance_miles=30.0,
-                confidence="verified", is_estimated=False, data_age_minutes=0,
+                duration_minutes=45.0,
+                distance_miles=30.0,
+                confidence="verified",
+                is_estimated=False,
+                data_age_minutes=0,
             )
         }
         result = await safety_review(state)
@@ -331,7 +328,9 @@ class TestConsensusE2E:
         state = _make_full_state()
         state["current_verdicts"] = [
             AgentVerdict(agent_name="meteorology", verdict="APPROVED", is_hard_constraint=True),
-            AgentVerdict(agent_name="family_coordinator", verdict="APPROVED", is_hard_constraint=False),
+            AgentVerdict(
+                agent_name="family_coordinator", verdict="APPROVED", is_hard_constraint=False
+            ),
             AgentVerdict(agent_name="nutritional", verdict="APPROVED", is_hard_constraint=False),
             AgentVerdict(agent_name="logistics", verdict="APPROVED", is_hard_constraint=True),
         ]
@@ -345,8 +344,15 @@ class TestConsensusE2E:
 
         state = _make_full_state()
         state["current_verdicts"] = [
-            AgentVerdict(agent_name="meteorology", verdict="REJECTED", is_hard_constraint=True, rejection_reason="rain"),
-            AgentVerdict(agent_name="family_coordinator", verdict="APPROVED", is_hard_constraint=False),
+            AgentVerdict(
+                agent_name="meteorology",
+                verdict="REJECTED",
+                is_hard_constraint=True,
+                rejection_reason="rain",
+            ),
+            AgentVerdict(
+                agent_name="family_coordinator", verdict="APPROVED", is_hard_constraint=False
+            ),
             AgentVerdict(agent_name="nutritional", verdict="APPROVED", is_hard_constraint=False),
             AgentVerdict(agent_name="logistics", verdict="APPROVED", is_hard_constraint=True),
         ]
@@ -377,7 +383,7 @@ class TestBackupPlanE2E:
         Synthesizer with 2 proposals in history → backup is proposal_history[-2].
         No extra LLM call made.
         """
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from nexus.agents.synthesizer import plan_synthesizer
 
@@ -395,8 +401,10 @@ class TestBackupPlanE2E:
         model_mock.ainvoke = AsyncMock(return_value=msg_mock)
         state["model_router"].get_model = MagicMock(return_value=model_mock)
 
-        with patch("nexus.output.renderer.render_plan_fragment", return_value="<html>plan</html>"), \
-             patch("nexus.output.renderer.render_plan_markdown", return_value="# Plan"):
+        with (
+            patch("nexus.output.renderer.render_plan_fragment", return_value="<html>plan</html>"),
+            patch("nexus.output.renderer.render_plan_markdown", return_value="# Plan"),
+        ):
             result = await plan_synthesizer(state)
 
         assert result["backup_activity"] is not None
@@ -408,7 +416,7 @@ class TestBackupPlanE2E:
         Synthesizer with only 1 proposal in history → backup is a relaxed variant.
         No extra LLM call (generate_relaxed_variant is pure Python).
         """
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, MagicMock
 
         from nexus.agents.synthesizer import plan_synthesizer
 
@@ -422,8 +430,10 @@ class TestBackupPlanE2E:
         model_mock.ainvoke = AsyncMock(return_value=msg_mock)
         state["model_router"].get_model = MagicMock(return_value=model_mock)
 
-        with patch("nexus.output.renderer.render_plan_fragment", return_value="<html>plan</html>"), \
-             patch("nexus.output.renderer.render_plan_markdown", return_value="# Plan"):
+        with (
+            patch("nexus.output.renderer.render_plan_fragment", return_value="<html>plan</html>"),
+            patch("nexus.output.renderer.render_plan_markdown", return_value="# Plan"),
+        ):
             result = await plan_synthesizer(state)
 
         assert result["backup_activity"] is not None
@@ -433,7 +443,6 @@ class TestBackupPlanE2E:
     async def test_generate_relaxed_variant_widens_distance(self):
         """generate_relaxed_variant() increases max_distance_miles by 5 when < 20."""
         from nexus.agents.synthesizer import generate_relaxed_variant
-        from nexus.state.schemas import PlanRequirements
 
         state = _make_full_state()
         state["plan_requirements"] = state["plan_requirements"].model_copy(

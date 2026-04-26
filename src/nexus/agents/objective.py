@@ -75,6 +75,7 @@ async def objective_draft_proposal(state: WeekendPlanState) -> dict:
     requirements = state.get("plan_requirements")
     if requirements is None:
         from nexus.resilience import HardConstraintDataUnavailable
+
         raise HardConstraintDataUnavailable(
             "intent_parsing",
             "Could not understand your request — the local model timed out or failed. "
@@ -88,9 +89,8 @@ async def objective_draft_proposal(state: WeekendPlanState) -> dict:
     requirements = _apply_revision_adjustments(requirements, rejection_context, state)
 
     state_date_update: dict = {}
-    if (
-        requirements.target_date is not None
-        and requirements.target_date != state.get("target_date")
+    if requirements.target_date is not None and requirements.target_date != state.get(
+        "target_date"
     ):
         state_date_update["target_date"] = requirements.target_date
 
@@ -113,6 +113,7 @@ async def objective_draft_proposal(state: WeekendPlanState) -> dict:
 
     if not candidates:
         from nexus.resilience import HardConstraintDataUnavailable
+
         raise HardConstraintDataUnavailable(
             "activity_search",
             f"No activities found near your location within "
@@ -125,13 +126,12 @@ async def objective_draft_proposal(state: WeekendPlanState) -> dict:
     model = router.get_model("objective")
 
     from nexus.config import NexusConfig
+
     _config = state.get("config")
     # ISSUE-09: Hard cap at 8 candidates to keep prompt within context window
     _MAX_LLM_CANDIDATES = 8
     _max_candidates = min(
-        _config.planning.max_candidate_activities
-        if isinstance(_config, NexusConfig)
-        else 20,
+        _config.planning.max_candidate_activities if isinstance(_config, NexusConfig) else 20,
         _MAX_LLM_CANDIDATES,
     )
 
@@ -146,10 +146,10 @@ async def objective_draft_proposal(state: WeekendPlanState) -> dict:
 
     prompt_text = ACTIVITY_RANKING_PROMPT.format(
         requirements=f"activity={requirements.activity_types}, "
-                     f"family_friendly={requirements.family_friendly}, "
-                     f"max_hrs={requirements.max_activity_hours}, "
-                     f"cell={requirements.require_cell_coverage}, "
-                     f"fitness={user.fitness_level if user else 'intermediate'}",
+        f"family_friendly={requirements.family_friendly}, "
+        f"max_hrs={requirements.max_activity_hours}, "
+        f"cell={requirements.require_cell_coverage}, "
+        f"fitness={user.fitness_level if user else 'intermediate'}",
         candidates=candidates_text,
         rejection_history=rejection_context or "None",
         previous_proposals=", ".join(previous_proposals) if previous_proposals else "None",
@@ -181,8 +181,7 @@ async def objective_draft_proposal(state: WeekendPlanState) -> dict:
         "current_phase": "reviewing",
         "activity_data_source": activity_data_source,  # ISSUE-01/ISSUE-14
         "negotiation_log": [
-            f"objective: drafted '{proposal.activity_name}' "
-            f"(attempt {len(proposal_history) + 1})"
+            f"objective: drafted '{proposal.activity_name}' (attempt {len(proposal_history) + 1})"
         ],
         **state_date_update,
     }
@@ -217,7 +216,9 @@ def _apply_revision_adjustments(
 
     if "logistics" in rejection_context.lower() and "radius" in rejection_context.lower():
         updates["search_radius_miles"] = requirements.search_radius_miles * 0.8
-        logger.debug("Logistics rejection: shrinking radius to %.1f mi", updates["search_radius_miles"])
+        logger.debug(
+            "Logistics rejection: shrinking radius to %.1f mi", updates["search_radius_miles"]
+        )
 
     if "cell" in rejection_context.lower() or "coverage" in rejection_context.lower():
         updates["require_cell_coverage"] = True
@@ -225,10 +226,13 @@ def _apply_revision_adjustments(
 
     if "timeline" in rejection_context.lower() or "time" in rejection_context.lower():
         updates["max_activity_hours"] = requirements.max_activity_hours - 0.5
-        logger.debug("Timeline rejection: compressing window to %.1fh", updates.get("max_activity_hours", 0))
+        logger.debug(
+            "Timeline rejection: compressing window to %.1fh", updates.get("max_activity_hours", 0)
+        )
 
     if "date" in rejection_context.lower() and "meteorology" in rejection_context.lower():
         from datetime import date
+
         current_date = state.get("target_date", date.today())
         new_date = current_date + timedelta(days=1)
         logger.debug("Meteorology date rejection: shifting to %s", new_date)

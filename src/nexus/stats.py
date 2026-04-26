@@ -45,9 +45,7 @@ def _connect(stats_db: Path) -> sqlite3.Connection:
     return conn
 
 
-def record_plan_started(
-    stats_db: Path, request_id: str, activity_type: str | None = None
-) -> None:
+def record_plan_started(stats_db: Path, request_id: str, activity_type: str | None = None) -> None:
     """Record that a new planning run has started."""
     with _connect(stats_db) as conn:
         conn.execute(
@@ -134,7 +132,9 @@ def get_ux_metrics_summary(stats_db: Path) -> dict:
 
     return {
         "approved_plans": len(rows),
-        "approval_time_avg_seconds": round(statistics.mean(approval_times), 1) if approval_times else None,
+        "approval_time_avg_seconds": round(statistics.mean(approval_times), 1)
+        if approval_times
+        else None,
         "first_pass_rate": round(len(first_pass) / len(rows), 3),
         "avg_trust_score": round(statistics.mean(trust_scores), 2) if trust_scores else None,
         "feedback_completion_rate": round(len(feedback_given) / len(rows), 3),
@@ -220,11 +220,13 @@ def get_recent_plans(stats_db: Path, limit: int = 5) -> list[dict]:
             date_label = datetime.fromisoformat(planned_at).strftime("%b %d, %Y")
         except ValueError:
             date_label = planned_at[:10]
-        result.append({
-            "request_id": r["request_id"],
-            "activity": r["activity_type"] or "Weekend plan",
-            "date": date_label,
-            "approved": bool(r["approved"]),
-            "has_feedback": bool(r["feedback_given"]),
-        })
+        result.append(
+            {
+                "request_id": r["request_id"],
+                "activity": r["activity_type"] or "Weekend plan",
+                "date": date_label,
+                "approved": bool(r["approved"]),
+                "has_feedback": bool(r["feedback_given"]),
+            }
+        )
     return result

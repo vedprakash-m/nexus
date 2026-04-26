@@ -39,6 +39,7 @@ async def plan_synthesizer(state: WeekendPlanState) -> dict:
         # of silently returning a dict with no output_html, which causes the runner
         # to emit the misleading "Planning completed but produced no output" message.
         from nexus.resilience import HardConstraintDataUnavailable
+
         raise HardConstraintDataUnavailable(
             "activity_proposal",
             "No suitable activity could be found within your constraints after all planning passes.",
@@ -59,8 +60,7 @@ async def plan_synthesizer(state: WeekendPlanState) -> dict:
         )
     elif data_source == "cached":
         _fallback_note = (
-            "Note: Activity options are from a recent cache "
-            "(live data check was skipped)."
+            "Note: Activity options are from a recent cache (live data check was skipped)."
         )
 
     # ── Slim context for LLM ──────────────────────────────────────────────
@@ -84,11 +84,12 @@ async def plan_synthesizer(state: WeekendPlanState) -> dict:
         location_description=f"{proposal.activity_name} area",
         target_date=str(state.get("target_date", "this weekend")),
         conditions_summary=weather.conditions_text if weather else "conditions unknown",
-        why_this_plan_context=llm_context.get("rejection_context") or "Best match for your preferences",
+        why_this_plan_context=llm_context.get("rejection_context")
+        or "Best match for your preferences",
         family_activities_summary="\n".join(
-            f"- {fa.member_name}: {fa.activity_name}"
-            for fa in state.get("family_activities", [])
-        ) or "All together",
+            f"- {fa.member_name}: {fa.activity_name}" for fa in state.get("family_activities", [])
+        )
+        or "All together",
         restaurant_name=meal_plan.name if meal_plan else "local restaurant",
         cuisine_type=meal_plan.cuisine_type if meal_plan else "",
     )
@@ -99,7 +100,9 @@ async def plan_synthesizer(state: WeekendPlanState) -> dict:
     try:
         narrative_raw = await asyncio.wait_for(model.ainvoke(messages), timeout=120.0)
         # narrative_raw is a string (not structured output)
-        narrative_text = narrative_raw.content if hasattr(narrative_raw, "content") else str(narrative_raw)
+        narrative_text = (
+            narrative_raw.content if hasattr(narrative_raw, "content") else str(narrative_raw)
+        )
     except asyncio.TimeoutError:
         logger.warning("synthesizer: LLM timed out — rendering plan without narrative")
     except Exception as exc:

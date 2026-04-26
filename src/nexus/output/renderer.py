@@ -66,21 +66,25 @@ def render_plan_markdown(state: "WeekendPlanState", narrative_text: str) -> str:
             lines.append(f"- **{fa.member_name}**: {fa.activity_name} at {fa.location_name}")
 
     if meal:
-        lines.extend([
-            "",
-            "## Dining",
-            "",
-            f"**{meal.name}** — {meal.cuisine_type}",
-            f"{meal.address}",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Dining",
+                "",
+                f"**{meal.name}** — {meal.cuisine_type}",
+                f"{meal.address}",
+            ]
+        )
 
     if weather:
-        lines.extend([
-            "",
-            "## Conditions",
-            "",
-            f"{weather.conditions_text}, high {weather.temperature_high_f:.0f}°F",
-        ])
+        lines.extend(
+            [
+                "",
+                "## Conditions",
+                "",
+                f"{weather.conditions_text}, high {weather.temperature_high_f:.0f}°F",
+            ]
+        )
 
     lines.extend(["", "---", f"*Generated {datetime.now().strftime('%Y-%m-%d %H:%M')}*"])
     return "\n".join(lines)
@@ -172,37 +176,37 @@ def render_plan_fragment(state: "WeekendPlanState", narrative_text: str) -> str:
     date_str = target_date.strftime("%A, %B %-d") if target_date else "This weekend"
 
     parts: list[str] = [
-        f'<div class="plan-card">',
+        '<div class="plan-card">',
         f'  <h1 class="plan-title">{html.escape(proposal.activity_name)}</h1>',
         f'  <p class="plan-date">{html.escape(date_str)}</p>',
         f'  <div class="plan-why">{html.escape(why_text)}</div>',
-        f'  <div class="plan-day">',
-        f'    <h2>Your day</h2>',
-        f'    <p>{html.escape(day_text)}</p>',
-        f'  </div>',
+        '  <div class="plan-day">',
+        "    <h2>Your day</h2>",
+        f"    <p>{html.escape(day_text)}</p>",
+        "  </div>",
     ]
 
     if family_activities:
         parts.append('  <div class="family-activities"><h2>Family activities</h2><ul>')
         for fa in family_activities:
             parts.append(
-                f'    <li><strong>{html.escape(fa.member_name)}</strong>: '
-                f'{html.escape(fa.activity_name)} at {html.escape(fa.location_name)}</li>'
+                f"    <li><strong>{html.escape(fa.member_name)}</strong>: "
+                f"{html.escape(fa.activity_name)} at {html.escape(fa.location_name)}</li>"
             )
         parts.append("  </ul></div>")
 
     if meal:
         parts.append(
             f'  <div class="meal-plan"><h2>Dining</h2>'
-            f'<p><strong>{html.escape(meal.name)}</strong> — {html.escape(meal.cuisine_type)}<br>'
-            f'{html.escape(meal.address)}</p></div>'
+            f"<p><strong>{html.escape(meal.name)}</strong> — {html.escape(meal.cuisine_type)}<br>"
+            f"{html.escape(meal.address)}</p></div>"
         )
 
     if weather:
         parts.append(
             f'  <div class="conditions"><h2>Conditions</h2>'
-            f'<p>{html.escape(weather.conditions_text)}, '
-            f'high {weather.temperature_high_f:.0f}°F</p></div>'
+            f"<p>{html.escape(weather.conditions_text)}, "
+            f"high {weather.temperature_high_f:.0f}°F</p></div>"
         )
 
     parts.append("</div>")

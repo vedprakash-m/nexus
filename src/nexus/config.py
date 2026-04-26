@@ -186,9 +186,7 @@ class NexusConfig(BaseModel):
         path = profile_path or Path.home() / ".nexus" / "profile.yaml"
 
         if not path.exists():
-            raise FileNotFoundError(
-                f"Profile not found at {path}. Run `nexus` and complete setup."
-            )
+            raise FileNotFoundError(f"Profile not found at {path}. Run `nexus` and complete setup.")
 
         yaml = YAML()
         with open(path) as f:
@@ -220,9 +218,7 @@ class NexusConfig(BaseModel):
         # Exclude api_keys from profile.yaml — they live in .env
         data = self.model_dump(exclude={"tools": {"api_keys"}})
         # Convert Path objects to strings for YAML serialization
-        data["paths"] = {
-            k: str(v) for k, v in data["paths"].items() if v is not None
-        }
+        data["paths"] = {k: str(v) for k, v in data["paths"].items() if v is not None}
 
         with open(path, "w") as f:
             yaml.dump(data, f)

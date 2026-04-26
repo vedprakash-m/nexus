@@ -79,8 +79,8 @@ class TestNoSystemInternalsLeaked:
                 if term in rendered_text:
                     violations.append(f"{tmpl.name}:{i}: {line.rstrip()}")
 
-        assert violations == [], (
-            f"Banned term '{term}' found in template(s):\n" + "\n".join(violations)
+        assert violations == [], f"Banned term '{term}' found in template(s):\n" + "\n".join(
+            violations
         )
 
     def test_progress_messages_contain_no_agent_names(self) -> None:
@@ -114,9 +114,7 @@ class TestNoSystemInternalsLeaked:
         all_messages = list(NODE_MESSAGES.values()) + list(ITERATION_NODE_MESSAGES.values())
         for msg in all_messages:
             for term in banned_in_messages:
-                assert term not in msg, (
-                    f"Progress message contains banned term '{term}': {msg!r}"
-                )
+                assert term not in msg, f"Progress message contains banned term '{term}': {msg!r}"
 
 
 # ── 10.7 — Copy rules ──────────────────────────────────────────────────────
@@ -171,12 +169,9 @@ class TestCopyRules:
 
     def test_progress_messages_are_concise(self) -> None:
         """Progress lines should be ≤ ~80 chars (UX §10.3)."""
-        too_long = [
-            msg for msg in self._all_progress_messages() if len(msg) > 80
-        ]
-        assert not too_long, (
-            "Progress message(s) exceed 80 chars:\n"
-            + "\n".join(f"  {m!r} ({len(m)} chars)" for m in too_long)
+        too_long = [msg for msg in self._all_progress_messages() if len(msg) > 80]
+        assert not too_long, "Progress message(s) exceed 80 chars:\n" + "\n".join(
+            f"  {m!r} ({len(m)} chars)" for m in too_long
         )
 
 
@@ -209,7 +204,9 @@ class TestPlanContentCompleteness:
     }
 
     @pytest.mark.parametrize("element,marker", REQUIRED_ELEMENTS.items())
-    def test_required_element_present_in_snapshot(self, snapshot_html: str, element: str, marker: str) -> None:
+    def test_required_element_present_in_snapshot(
+        self, snapshot_html: str, element: str, marker: str
+    ) -> None:
         """Each of the 9 required plan elements must be present in the snapshot."""
         assert marker in snapshot_html, (
             f"Required plan element '{element}' (marker: '{marker}') "
@@ -233,9 +230,7 @@ class TestPlanContentCompleteness:
             "btn-approve",
         ]
         missing = [s for s in required_in_source if s not in template_src]
-        assert missing == [], (
-            f"Plan template missing structural elements: {missing}"
-        )
+        assert missing == [], f"Plan template missing structural elements: {missing}"
 
     def test_markdown_template_has_frontmatter(self) -> None:
         """plan.md.j2 must include YAML frontmatter (Tech §9.6)."""

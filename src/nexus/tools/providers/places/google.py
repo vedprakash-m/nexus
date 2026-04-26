@@ -89,6 +89,7 @@ class GooglePlaces:
         for attempt, delay in enumerate([None] + _delays):
             if delay is not None:
                 import asyncio
+
                 await asyncio.sleep(delay)
 
             try:
@@ -107,7 +108,8 @@ class GooglePlaces:
                     if status in ("REQUEST_DENIED", "INVALID_REQUEST"):
                         logger.error(
                             "Google Places error: %s — %s",
-                            status, data.get("error_message", ""),
+                            status,
+                            data.get("error_message", ""),
                         )
                         return []
                     if status == "ZERO_RESULTS":
@@ -148,7 +150,9 @@ def _parse_google_results(results: list[dict]) -> list[PlaceResult]:
         types = place.get("types", [])
         # Best human-readable type (skip generic ones)
         _skip = {"point_of_interest", "establishment", "food"}
-        category = next((t.replace("_", " ").title() for t in types if t not in _skip), "Restaurant")
+        category = next(
+            (t.replace("_", " ").title() for t in types if t not in _skip), "Restaurant"
+        )
 
         price_map = {1: "$", 2: "$$", 3: "$$$", 4: "$$$$"}
         price = price_map.get(place.get("price_level", 2), "$$")

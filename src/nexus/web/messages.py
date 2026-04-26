@@ -54,27 +54,20 @@ NODE_CONTEXT: dict[str, str] = {
         "cell coverage on-site."
     ),
     "review_nutrition": (
-        "Looking for nearby restaurants and food options that meet your dietary "
-        "restrictions."
+        "Looking for nearby restaurants and food options that meet your dietary restrictions."
     ),
     "review_logistics": (
-        "Calculating driving time and turn-by-turn route from your home using "
-        "live routing data."
+        "Calculating driving time and turn-by-turn route from your home using live routing data."
     ),
     "check_consensus": (
         "All checks are being weighed — if anything's off, Nexus will try a "
         "different option automatically."
     ),
     "review_safety": (
-        "Final pass — confirming weather, route, and medical access are all "
-        "within safe limits."
+        "Final pass — confirming weather, route, and medical access are all within safe limits."
     ),
-    "synthesize_plan": (
-        "Writing your personalised plan narrative. Almost there!"
-    ),
-    "save_plan": (
-        "Saving the finished plan to disk."
-    ),
+    "synthesize_plan": ("Writing your personalised plan narrative. Almost there!"),
+    "save_plan": ("Saving the finished plan to disk."),
 }
 
 
@@ -191,7 +184,7 @@ AGENT_TRACE: dict[str, dict] = {
         "description": (
             "Takes all state accumulated by reviewers and calls the LLM to "
             "produce a structured JSON narrative. The graph is compiled with "
-            "interrupt_after=[\"synthesize_plan\"], so LangGraph pauses here "
+            'interrupt_after=["synthesize_plan"], so LangGraph pauses here '
             "and allows human-in-the-loop approval before saving."
         ),
     },
@@ -228,10 +221,9 @@ def message_for(node_name: str, iteration: int = 1) -> str:
     """Return the user-facing progress message for a node at the given iteration."""
     if iteration > 1 and node_name in ITERATION_NODE_MESSAGES:
         return ITERATION_NODE_MESSAGES[node_name]
-    return NODE_MESSAGES.get(node_name, f"Working...")
+    return NODE_MESSAGES.get(node_name, "Working...")
 
 
 def context_for(node_name: str) -> str:
     """Return the detailed context description shown while a node is active."""
     return NODE_CONTEXT.get(node_name, "")
-

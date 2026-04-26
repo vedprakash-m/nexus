@@ -71,7 +71,9 @@ class TestSynthesizerFallbackRenderer:
 
         with (
             patch("nexus.output.html.render_plan_html", side_effect=RuntimeError("template error")),
-            patch("nexus.output.renderer.render_minimal_plan", return_value="<html>minimal</html>") as mock_minimal,
+            patch(
+                "nexus.output.renderer.render_minimal_plan", return_value="<html>minimal</html>"
+            ) as mock_minimal,
             patch("nexus.output.markdown.render_plan_markdown", return_value="# Plan"),
             patch("nexus.state.helpers.prepare_llm_context", return_value={}),
         ):
@@ -118,7 +120,10 @@ class TestSynthesizerFallbackRenderer:
 
         assert result.get("output_html"), "output_html must not be empty after fallback"
         # The plan_minimal.html.j2 template includes a degraded notice
-        assert "unavailable" in result["output_html"].lower() or "Tiger Mountain" in result["output_html"]
+        assert (
+            "unavailable" in result["output_html"].lower()
+            or "Tiger Mountain" in result["output_html"]
+        )
 
 
 class TestSynthesizerFallbackNote:

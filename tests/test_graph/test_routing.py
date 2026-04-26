@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
 
 from nexus.graph.planner import route_after_consensus, route_after_safety
 from nexus.state.schemas import AgentVerdict

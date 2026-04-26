@@ -7,7 +7,7 @@ Exact verdict assertions (not LLM text).
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -84,7 +84,6 @@ def _make_mock_weather_tool(forecast=None, aqi=None, daylight=None):
 
 def _make_state(proposal=None, weather_tool=None, **overrides) -> dict:
     """Build minimal state for agent tests."""
-    from nexus.tools.models import AirQuality, DaylightWindow, WeatherForecast
 
     mock_registry = MagicMock()
     mock_registry.weather = weather_tool or _make_mock_weather_tool()
@@ -141,7 +140,6 @@ class TestMeteorologyAgent:
 
     async def test_high_precip_rejected(self):
         from nexus.agents.meteorology import meteorology_review
-        from nexus.tools.models import AirQuality, DaylightWindow
 
         # 65% precipitation → above 40% threshold
         weather_tool = _make_mock_weather_tool()
@@ -175,9 +173,7 @@ class TestMeteorologyAgent:
     async def test_lightning_with_exposed_sections_rejected(self):
         from nexus.agents.meteorology import meteorology_review
 
-        weather_tool = _make_mock_weather_tool(
-            forecast=_make_weather(lightning_risk=True)
-        )
+        weather_tool = _make_mock_weather_tool(forecast=_make_weather(lightning_risk=True))
         proposal = _make_proposal(has_exposed_sections=True)
         state = _make_state(proposal=proposal, weather_tool=weather_tool)
 
@@ -189,9 +185,7 @@ class TestMeteorologyAgent:
         """Lightning risk doesn't reject if route has no exposed sections."""
         from nexus.agents.meteorology import meteorology_review
 
-        weather_tool = _make_mock_weather_tool(
-            forecast=_make_weather(lightning_risk=True)
-        )
+        weather_tool = _make_mock_weather_tool(forecast=_make_weather(lightning_risk=True))
         proposal = _make_proposal(has_exposed_sections=False)
         state = _make_state(proposal=proposal, weather_tool=weather_tool)
 

@@ -11,7 +11,6 @@ from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
 from tests.test_agents.test_meteorology import _make_proposal, _make_state
 

@@ -10,7 +10,6 @@ are passed to the template context.
 
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -124,7 +123,11 @@ def _build_context(state: "WeekendPlanState", narrative_text: str) -> dict:
         "family_ok": family_ok,
         "route_ok": route_ok,
         "family_activities": [
-            {"member_name": fa.member_name, "activity_name": fa.activity_name, "location_name": getattr(fa, "location_name", "")}
+            {
+                "member_name": fa.member_name,
+                "activity_name": fa.activity_name,
+                "location_name": getattr(fa, "location_name", ""),
+            }
             for fa in family_activities
         ],
     }
@@ -151,20 +154,34 @@ def _build_timeline(proposal, meal, routes: dict) -> list[dict]:
         route = routes.get("home_to_activity")
         if route and hasattr(route, "duration_minutes"):
             dep_dt = start - __import__("datetime").timedelta(minutes=route.duration_minutes)
-            items.append({"time": dep_dt.strftime("%-I:%M %p"), "label": "Depart home", "who": None})
-        items.append({"time": start.strftime("%-I:%M %p"), "label": f"Arrive at {proposal.activity_name}", "who": None})
+            items.append(
+                {"time": dep_dt.strftime("%-I:%M %p"), "label": "Depart home", "who": None}
+            )
+        items.append(
+            {
+                "time": start.strftime("%-I:%M %p"),
+                "label": f"Arrive at {proposal.activity_name}",
+                "who": None,
+            }
+        )
 
         # Activity end
         from datetime import timedelta
+
         end = start + timedelta(hours=proposal.estimated_duration_hours)
         items.append({"time": end.strftime("%-I:%M %p"), "label": "Activity ends", "who": None})
 
         # Meal — schedule after activity + drive to restaurant
         if meal and hasattr(meal, "name"):
             from datetime import timedelta as td
+
             # Add travel time from trail to restaurant (use route if available)
             trail_to_restaurant = routes.get("activity_to_restaurant")
-            travel_min = trail_to_restaurant.duration_minutes if trail_to_restaurant and hasattr(trail_to_restaurant, "duration_minutes") else 20.0
+            travel_min = (
+                trail_to_restaurant.duration_minutes
+                if trail_to_restaurant and hasattr(trail_to_restaurant, "duration_minutes")
+                else 20.0
+            )
             meal_time = end + td(minutes=travel_min)
 
             # Pick label based on time of day
@@ -176,7 +193,13 @@ def _build_timeline(proposal, meal, routes: dict) -> list[dict]:
             else:
                 meal_label = "Dinner"
 
-            items.append({"time": meal_time.strftime("%-I:%M %p"), "label": f"{meal_label} at {meal.name}", "who": None})
+            items.append(
+                {
+                    "time": meal_time.strftime("%-I:%M %p"),
+                    "label": f"{meal_label} at {meal.name}",
+                    "who": None,
+                }
+            )
     return items
 
 
@@ -221,5 +244,7 @@ def _emergency_info(state) -> str | None:
     if safety and hasattr(safety, "nearest_hospital"):
         h = safety.nearest_hospital
         if h:
-            return f"Nearest hospital: {h.get('name', 'Unknown')} ({h.get('distance_miles', '?')} mi)"
+            return (
+                f"Nearest hospital: {h.get('name', 'Unknown')} ({h.get('distance_miles', '?')} mi)"
+            )
     return "Call 911 in an emergency"

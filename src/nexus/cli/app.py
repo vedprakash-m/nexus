@@ -37,7 +37,9 @@ def main(
 
 @app.command()
 def plan(
-    intent: Annotated[str, typer.Argument(help="Planning intent, e.g. 'hike with the family Sunday'")],  # noqa: E501
+    intent: Annotated[
+        str, typer.Argument(help="Planning intent, e.g. 'hike with the family Sunday'")
+    ],  # noqa: E501
     port: Annotated[int, typer.Option("--port", "-p", help="Server port")] = 7820,
     debug: Annotated[bool, typer.Option("--debug", help="Enable debug logging")] = False,
 ) -> None:

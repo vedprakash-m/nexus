@@ -63,13 +63,17 @@ class WeekendPlanState(TypedDict, total=False):
 
     # ── External data ─────────────────────────────────────────────────────────
     weather_data: object | None  # WeatherForecast — avoid circular import
-    route_data: dict[str, object] | None  # keys: "home_to_activity", "activity_to_restaurant", "restaurant_to_home"
+    route_data: (
+        dict[str, object] | None
+    )  # keys: "home_to_activity", "activity_to_restaurant", "restaurant_to_home"
     safety_data: dict | None  # vestigial — no agent writes this; keep for forward compat
 
     # ── Execution control ─────────────────────────────────────────────────────
     iteration_count: int
     max_iterations: int
-    current_phase: Literal["drafting", "reviewing", "revising", "validating", "human_review", "completed"]
+    current_phase: Literal[
+        "drafting", "reviewing", "revising", "validating", "human_review", "completed"
+    ]
     rejection_context: str | None
     pending_constraints: list[str]  # mid-flight constraints from WebSocket
 

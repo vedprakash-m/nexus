@@ -7,7 +7,6 @@ Schema validation only — do NOT assert on specific LLM text.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -58,7 +57,7 @@ def _objective_state(
 ) -> dict:
     """Build state for objective agent tests."""
     import json
-    from nexus.state.schemas import PlanRequirements, UserProfile
+    from nexus.state.schemas import UserProfile
 
     if candidates is None:
         candidates = [_make_activity_result("Windy Hill Preserve")]
@@ -224,9 +223,7 @@ class TestRevisionAdjustments:
         req = _make_plan_requirements(require_cell_coverage=False)
         state = _make_state()
 
-        adjusted = _apply_revision_adjustments(
-            req, "family coordinator: no cell service", state
-        )
+        adjusted = _apply_revision_adjustments(req, "family coordinator: no cell service", state)
 
         assert adjusted.require_cell_coverage is True
 

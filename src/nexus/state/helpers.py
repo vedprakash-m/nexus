@@ -7,7 +7,7 @@ These are pure functions — no side effects, no I/O.
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, timedelta
 from typing import TYPE_CHECKING
 
 from nexus.state.schemas import AgentVerdict, AgentFailureType
@@ -15,7 +15,6 @@ from nexus.state.schemas import AgentVerdict, AgentFailureType
 if TYPE_CHECKING:
     from nexus.config import NexusConfig
     from nexus.state.graph_state import WeekendPlanState
-    from nexus.state.schemas import ActivityProposal, UserProfile, FamilyProfile
 
 
 def build_initial_state(
@@ -29,7 +28,6 @@ def build_initial_state(
 
     This is a factory function because TypedDict cannot have class methods.
     """
-    from nexus.config import NexusConfig
     from nexus.state.schemas import FamilyMember, FamilyProfile, UserProfile
 
     if target_date is None:
@@ -103,11 +101,7 @@ def all_agents_approved(state: "WeekendPlanState") -> bool:
     if not verdicts:
         return False
     required_agents = {"meteorology", "family_coordinator", "nutritional", "logistics"}
-    approved_agents = {
-        v.agent_name
-        for v in verdicts
-        if v.verdict in ("APPROVED", "NEEDS_INFO")
-    }
+    approved_agents = {v.agent_name for v in verdicts if v.verdict in ("APPROVED", "NEEDS_INFO")}
     return required_agents.issubset(approved_agents)
 
 
@@ -170,14 +164,10 @@ def prepare_llm_context(state: "WeekendPlanState") -> dict:
         "user_intent": state.get("user_intent", ""),
         "target_date": str(state.get("target_date", "")),
         "plan_requirements": (
-            state["plan_requirements"].model_dump()
-            if state.get("plan_requirements")
-            else {}
+            state["plan_requirements"].model_dump() if state.get("plan_requirements") else {}
         ),
         "primary_activity": (
-            state["primary_activity"].model_dump()
-            if state.get("primary_activity")
-            else None
+            state["primary_activity"].model_dump() if state.get("primary_activity") else None
         ),
         "rejection_context": state.get("rejection_context"),
         "recent_proposals": [p.model_dump() for p in history[-2:]],

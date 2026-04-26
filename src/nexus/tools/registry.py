@@ -13,7 +13,7 @@ Provider mapping (tasks.md §3.13):
 
 from __future__ import annotations
 
-from typing import TypeVar, overload
+from typing import TypeVar
 
 from nexus.tools.interfaces import ActivityTool, PlacesTool, RoutingTool, WeatherTool
 
@@ -102,6 +102,7 @@ def build_registry(config: object) -> ToolRegistry:
     assert isinstance(config, NexusConfig)
 
     from diskcache import Cache
+
     _activity_cache = Cache(str(config.paths.cache_dir_safe / "activity"))
 
     registry = ToolRegistry()

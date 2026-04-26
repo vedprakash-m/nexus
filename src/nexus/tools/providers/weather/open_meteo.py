@@ -136,8 +136,11 @@ class OpenMeteoWeather:
             )
             if resp.status_code == 400:
                 # Date out of forecast range; return astronomical approximation
-                logger.warning("meteorology: daylight API 400 for %s — using 6am/8pm fallback", date_str)
+                logger.warning(
+                    "meteorology: daylight API 400 for %s — using 6am/8pm fallback", date_str
+                )
                 from datetime import time
+
                 return DaylightWindow(
                     sunrise=datetime.combine(date, time(6, 0)),
                     sunset=datetime.combine(date, time(20, 0)),
@@ -150,8 +153,8 @@ class OpenMeteoWeather:
         sunrise_strs = daily.get("sunrise", [])
         sunset_strs = daily.get("sunset", [])
 
-        # API returns ISO 8601 local time strings
-        tz_offset = data.get("utc_offset_seconds", 0)
+        # API returns ISO 8601 local time strings; utc_offset_seconds not used
+        # (isoformat strings are parsed directly with tzinfo assignment below)
 
         def _parse(s: str) -> datetime:
             # "2026-04-19T06:30" -> datetime
@@ -160,8 +163,16 @@ class OpenMeteoWeather:
                 dt = dt.replace(tzinfo=timezone.utc)
             return dt
 
-        sunrise = _parse(sunrise_strs[0]) if sunrise_strs else datetime.now(timezone.utc).replace(hour=6, minute=30)
-        sunset = _parse(sunset_strs[0]) if sunset_strs else datetime.now(timezone.utc).replace(hour=19, minute=45)
+        sunrise = (
+            _parse(sunrise_strs[0])
+            if sunrise_strs
+            else datetime.now(timezone.utc).replace(hour=6, minute=30)
+        )
+        sunset = (
+            _parse(sunset_strs[0])
+            if sunset_strs
+            else datetime.now(timezone.utc).replace(hour=19, minute=45)
+        )
 
         return DaylightWindow(
             sunrise=sunrise,

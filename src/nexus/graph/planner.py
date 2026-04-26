@@ -89,6 +89,7 @@ async def _stub_save_plan(state: WeekendPlanState) -> dict:
 # Real agent imports (task 9.1)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 def _load_real_agents() -> dict:
     """Import real agent implementations. Called once at module load."""
     from nexus.agents.family_coordinator import family_coordinator_review
@@ -234,19 +235,20 @@ def build_planning_graph(
             return await agent_fn({**state, **_runtime})
 
         return _wrapper
+
     graph = StateGraph(WeekendPlanState)
 
     # ── Nodes — each wrapped to inject non-serializable runtime objects ────
-    graph.add_node("parse_intent",        _inject_runtime(_AGENT_REGISTRY["parse_intent"]))
-    graph.add_node("draft_proposal",      _inject_runtime(_AGENT_REGISTRY["draft_proposal"]))
-    graph.add_node("review_meteorology",  _inject_runtime(_AGENT_REGISTRY["review_meteorology"]))
-    graph.add_node("review_family",       _inject_runtime(_AGENT_REGISTRY["review_family"]))
-    graph.add_node("review_nutrition",    _inject_runtime(_AGENT_REGISTRY["review_nutrition"]))
-    graph.add_node("review_logistics",    _inject_runtime(_AGENT_REGISTRY["review_logistics"]))
-    graph.add_node("check_consensus",     _inject_runtime(_AGENT_REGISTRY["check_consensus"]))
-    graph.add_node("review_safety",       _inject_runtime(_AGENT_REGISTRY["review_safety"]))
-    graph.add_node("synthesize_plan",     _inject_runtime(_AGENT_REGISTRY["synthesize_plan"]))
-    graph.add_node("save_plan",           _inject_runtime(_AGENT_REGISTRY["save_plan"]))
+    graph.add_node("parse_intent", _inject_runtime(_AGENT_REGISTRY["parse_intent"]))
+    graph.add_node("draft_proposal", _inject_runtime(_AGENT_REGISTRY["draft_proposal"]))
+    graph.add_node("review_meteorology", _inject_runtime(_AGENT_REGISTRY["review_meteorology"]))
+    graph.add_node("review_family", _inject_runtime(_AGENT_REGISTRY["review_family"]))
+    graph.add_node("review_nutrition", _inject_runtime(_AGENT_REGISTRY["review_nutrition"]))
+    graph.add_node("review_logistics", _inject_runtime(_AGENT_REGISTRY["review_logistics"]))
+    graph.add_node("check_consensus", _inject_runtime(_AGENT_REGISTRY["check_consensus"]))
+    graph.add_node("review_safety", _inject_runtime(_AGENT_REGISTRY["review_safety"]))
+    graph.add_node("synthesize_plan", _inject_runtime(_AGENT_REGISTRY["synthesize_plan"]))
+    graph.add_node("save_plan", _inject_runtime(_AGENT_REGISTRY["save_plan"]))
 
     # ── Edges ──────────────────────────────────────────────────────────────
     graph.add_edge(START, "parse_intent")

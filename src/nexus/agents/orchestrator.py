@@ -16,7 +16,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from nexus.agents.error_boundary import agent_error_boundary
 from nexus.llm.prompts import INTENT_PARSE_PROMPT, INTENT_PARSE_SYSTEM
 from nexus.state.graph_state import WeekendPlanState
-from nexus.state.schemas import AgentVerdict, PlanRequirements
+from nexus.state.schemas import PlanRequirements
 
 logger = logging.getLogger(__name__)
 
@@ -54,14 +54,18 @@ def _requirements_from_profile(state: WeekendPlanState, raw: dict) -> PlanRequir
     if not raw.get("activity_types"):
         # Simple keyword extraction from intent text
         activity_keywords = {
-            "hike": "hiking", "hik": "hiking",
-            "bike": "cycling", "cycl": "cycling",
+            "hike": "hiking",
+            "hik": "hiking",
+            "bike": "cycling",
+            "cycl": "cycling",
             "swim": "swimming",
             "kayak": "kayaking",
             "camp": "camping",
         }
         inferred = [v for k, v in activity_keywords.items() if k in intent_lower]
-        raw["activity_types"] = inferred or (list(user.preferred_activities) if user else ["outdoor"])
+        raw["activity_types"] = inferred or (
+            list(user.preferred_activities) if user else ["outdoor"]
+        )
 
     family_has_members = bool(family and family.members)
 
@@ -90,8 +94,7 @@ def _requirements_from_profile(state: WeekendPlanState, raw: dict) -> PlanRequir
     default_radius = _float("search_radius_miles", max_drive * 0.8)
 
     req_cell = family_has_members and any(
-        getattr(m, "requires_cell_service", False)
-        for m in (family.members if family else [])
+        getattr(m, "requires_cell_service", False) for m in (family.members if family else [])
     )
 
     return PlanRequirements(
@@ -101,9 +104,8 @@ def _requirements_from_profile(state: WeekendPlanState, raw: dict) -> PlanRequir
         min_elevation_gain_ft=_int("min_elevation_gain_ft", 0),
         must_have_cell_coverage=_bool("must_have_cell_coverage", req_cell),
         family_friendly=_bool("family_friendly", family_has_members),
-        dietary_requirements=raw.get("dietary_requirements") or (
-            user.dietary_restrictions if user else []
-        ),
+        dietary_requirements=raw.get("dietary_requirements")
+        or (user.dietary_restrictions if user else []),
         require_cell_coverage=_bool("require_cell_coverage", req_cell),
         max_activity_hours=_float("max_activity_hours", 8.0),
         search_radius_miles=default_radius,
@@ -191,19 +193,14 @@ async def orchestrator_check_consensus(state: WeekendPlanState) -> dict:
             "current_phase": "revising",
             "rejection_context": f"Mid-flight constraint added: {constraint_text}",
             "pending_constraints": [],
-            "negotiation_log": [
-                f"orchestrator: constraint injected — {constraint_text}"
-            ],
+            "negotiation_log": [f"orchestrator: constraint injected — {constraint_text}"],
         }
 
     # Build rejection summary for objective agent
     rejections = [v for v in verdicts if v.verdict == "REJECTED"]
     rejection_text: str | None = None
     if rejections:
-        parts = [
-            f"{v.agent_name}: {v.rejection_reason or 'no reason'}"
-            for v in rejections
-        ]
+        parts = [f"{v.agent_name}: {v.rejection_reason or 'no reason'}" for v in rejections]
         rejection_text = " | ".join(parts)
 
     from nexus.state.helpers import all_agents_approved
@@ -220,6 +217,7 @@ async def orchestrator_check_consensus(state: WeekendPlanState) -> dict:
     if current_phase == "revising" and rejection_text:
         try:
             from langgraph.types import adispatch_custom_event
+
             await adispatch_custom_event(
                 "rejection_decided",
                 {"rejection_reason": rejection_text, "iteration": iteration_count},

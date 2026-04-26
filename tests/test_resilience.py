@@ -8,7 +8,6 @@ triggering the exponential-backoff retry loop (transient).
 from __future__ import annotations
 
 import httpx
-import pytest
 
 from nexus.resilience import GracefulDegradation
 
@@ -18,18 +17,24 @@ class TestIsTerminalError:
 
     def test_401_is_terminal(self):
         resp = httpx.Response(401)
-        exc = httpx.HTTPStatusError("unauthorized", request=httpx.Request("GET", "http://x"), response=resp)
+        exc = httpx.HTTPStatusError(
+            "unauthorized", request=httpx.Request("GET", "http://x"), response=resp
+        )
         assert GracefulDegradation._is_terminal_error(exc) is True
 
     def test_403_is_terminal(self):
         resp = httpx.Response(403)
-        exc = httpx.HTTPStatusError("forbidden", request=httpx.Request("GET", "http://x"), response=resp)
+        exc = httpx.HTTPStatusError(
+            "forbidden", request=httpx.Request("GET", "http://x"), response=resp
+        )
         assert GracefulDegradation._is_terminal_error(exc) is True
 
     def test_429_is_terminal(self):
         """Rate-limited: retrying worsens the rate-limit window (ISSUE-03)."""
         resp = httpx.Response(429)
-        exc = httpx.HTTPStatusError("rate limited", request=httpx.Request("GET", "http://x"), response=resp)
+        exc = httpx.HTTPStatusError(
+            "rate limited", request=httpx.Request("GET", "http://x"), response=resp
+        )
         assert GracefulDegradation._is_terminal_error(exc) is True
 
     def test_connect_error_is_terminal(self):
@@ -41,12 +46,16 @@ class TestIsTerminalError:
 
     def test_500_is_transient(self):
         resp = httpx.Response(500)
-        exc = httpx.HTTPStatusError("server error", request=httpx.Request("GET", "http://x"), response=resp)
+        exc = httpx.HTTPStatusError(
+            "server error", request=httpx.Request("GET", "http://x"), response=resp
+        )
         assert GracefulDegradation._is_terminal_error(exc) is False
 
     def test_503_is_transient(self):
         resp = httpx.Response(503)
-        exc = httpx.HTTPStatusError("unavailable", request=httpx.Request("GET", "http://x"), response=resp)
+        exc = httpx.HTTPStatusError(
+            "unavailable", request=httpx.Request("GET", "http://x"), response=resp
+        )
         assert GracefulDegradation._is_terminal_error(exc) is False
 
     def test_timeout_is_transient(self):

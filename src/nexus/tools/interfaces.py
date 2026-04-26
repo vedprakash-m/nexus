@@ -18,7 +18,6 @@ from nexus.tools.models import (
     ActivityResult,
     AirQuality,
     Coordinates,
-    CoverageEstimate,
     DaylightWindow,
     PlaceResult,
     RouteResult,

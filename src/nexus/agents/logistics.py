@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from nexus.agents.error_boundary import agent_error_boundary
 from nexus.state.graph_state import WeekendPlanState
@@ -63,7 +63,9 @@ async def logistics_review(state: WeekendPlanState) -> dict:
         )
 
     # ── Total driving time ─────────────────────────────────────────────────
-    total_driving = route_home_to_activity.duration_minutes + route_activity_to_home.duration_minutes
+    total_driving = (
+        route_home_to_activity.duration_minutes + route_activity_to_home.duration_minutes
+    )
     if route_activity_to_restaurant and route_restaurant_to_home:
         total_driving = (
             route_home_to_activity.duration_minutes
@@ -75,6 +77,7 @@ async def logistics_review(state: WeekendPlanState) -> dict:
 
     # ── Timeline conflict checks ───────────────────────────────────────────
     from nexus.config import NexusConfig
+
     _config = state.get("config")
     if isinstance(_config, NexusConfig):
         _earliest_departure = _config.planning.earliest_departure_hour
@@ -137,9 +140,7 @@ async def logistics_review(state: WeekendPlanState) -> dict:
             )
         ],
         "route_data": route_data,
-        "negotiation_log": [
-            f"logistics: APPROVED — {total_driving:.0f} min total driving"
-        ],
+        "negotiation_log": [f"logistics: APPROVED — {total_driving:.0f} min total driving"],
     }
 
 

@@ -12,9 +12,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
-from tests.test_agents.test_meteorology import _make_proposal, _make_state
+from tests.test_agents.test_meteorology import _make_state
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -180,8 +179,9 @@ class TestOrchestratorParseIntent:
         from nexus.state.schemas import PlanRequirements, UserProfile
 
         # New implementation uses model.bind(...).ainvoke(messages)
-        llm_json = json.dumps({"activity_types": ["hiking"], "max_distance_miles": 30.0,
-                                "family_friendly": True})
+        llm_json = json.dumps(
+            {"activity_types": ["hiking"], "max_distance_miles": 30.0, "family_friendly": True}
+        )
         bound_model = MagicMock()
         bound_model.ainvoke = AsyncMock(return_value=MagicMock(content=llm_json))
 

@@ -7,10 +7,9 @@ Exact verdict assertions (not LLM text).
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 
 from tests.test_agents.test_meteorology import (
     _make_proposal,
@@ -27,9 +26,7 @@ from tests.test_agents.test_meteorology import (
 def _make_family_profile(*, has_members: bool = True) -> object:
     from nexus.state.schemas import FamilyMember, FamilyProfile
 
-    members = (
-        [FamilyMember(name="Jamie", age=12)] if has_members else []
-    )
+    members = [FamilyMember(name="Jamie", age=12)] if has_members else []
     return FamilyProfile(members=members, max_total_driving_minutes=180)
 
 
@@ -49,7 +46,7 @@ def _safety_state(
     has_hospitals: bool = True,
     has_family: bool = True,
     marginal_weather_precip: float = 5.0,  # < 30% threshold = not marginal
-    road_proximity_miles: float = 0.1,      # < 0.5 = has coverage
+    road_proximity_miles: float = 0.1,  # < 0.5 = has coverage
     start_hour: int = 9,
     duration_hours: float = 5.0,
     route_duration: float = 60.0,
@@ -81,9 +78,7 @@ def _safety_state(
         }
     )
 
-    hospital_results = (
-        [MagicMock(name="SF General")] if has_hospitals else []
-    )
+    hospital_results = [MagicMock(name="SF General")] if has_hospitals else []
 
     mock_activity = MagicMock()
     mock_activity.search_activities = AsyncMock(return_value=(hospital_results, "live"))
@@ -139,8 +134,8 @@ class TestSafetyAgent:
         from nexus.agents.safety import safety_review
 
         state = _safety_state(
-            has_hospitals=False,   # remote
-            has_family=True,       # family present
+            has_hospitals=False,  # remote
+            has_family=True,  # family present
             marginal_weather_precip=35.0,  # > 30% threshold
         )
         result = await safety_review(state)

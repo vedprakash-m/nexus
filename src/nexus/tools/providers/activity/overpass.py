@@ -31,7 +31,7 @@ TIMEOUT = 8.0  # reduced from 20.0 — ISSUE-03; 8s is well above median Overpas
 # ─────────────────────────────────────────────────────────────────────────────
 _OVERPASS_COOLDOWN_KEY = "overpass:cooldown"
 _OVERPASS_FAIL_COUNT_KEY = "overpass:fail_count"
-_CIRCUIT_BREAKER_THRESHOLD = 3   # consecutive failures before cooldown
+_CIRCUIT_BREAKER_THRESHOLD = 3  # consecutive failures before cooldown
 _CIRCUIT_BREAKER_WINDOW_S = 120  # rolling window TTL for fail counter (seconds)
 _CIRCUIT_BREAKER_COOLDOWN_S = 600  # 10-minute cooldown after threshold reached
 
@@ -50,14 +50,86 @@ def _is_in_pnw(lat: float, lon: float) -> bool:
 
 # Generic activity template types used for non-PNW users (no fixed coordinates)
 _GENERIC_TEMPLATES = [
-    {"name_tmpl": "[Estimated] Local Hiking Trail", "type": "hiking", "difficulty": "moderate", "miles": 5.0, "elev": 800, "tags": ["estimated", "trail", "outdoor"], "dlat": 0.05, "dlon": -0.03},
-    {"name_tmpl": "[Estimated] Scenic Overlook Trail", "type": "hiking", "difficulty": "moderate", "miles": 3.5, "elev": 600, "tags": ["estimated", "views", "outdoor"], "dlat": -0.04, "dlon": 0.06},
-    {"name_tmpl": "[Estimated] Nearby State Park", "type": "hiking", "difficulty": "easy", "miles": 2.5, "elev": 200, "tags": ["estimated", "park", "family-friendly"], "dlat": 0.02, "dlon": 0.04},
-    {"name_tmpl": "[Estimated] Local Cycling Route", "type": "cycling", "difficulty": "moderate", "miles": 15.0, "elev": 300, "tags": ["estimated", "cycling", "bike"], "dlat": -0.06, "dlon": -0.05},
-    {"name_tmpl": "[Estimated] Waterfront Bike Path", "type": "cycling", "difficulty": "easy", "miles": 10.0, "elev": 100, "tags": ["estimated", "cycling", "waterfront"], "dlat": 0.07, "dlon": 0.02},
-    {"name_tmpl": "[Estimated] Community Recreation Area", "type": "outdoor", "difficulty": "easy", "miles": 2.0, "elev": 50, "tags": ["estimated", "outdoor", "family-friendly"], "dlat": -0.02, "dlon": -0.07},
-    {"name_tmpl": "[Estimated] Local Nature Reserve", "type": "hiking", "difficulty": "easy", "miles": 3.0, "elev": 300, "tags": ["estimated", "nature", "wildlife"], "dlat": 0.08, "dlon": -0.01},
-    {"name_tmpl": "[Estimated] Lakeside Trail", "type": "hiking", "difficulty": "moderate", "miles": 4.0, "elev": 400, "tags": ["estimated", "lake", "trail"], "dlat": -0.03, "dlon": 0.08},
+    {
+        "name_tmpl": "[Estimated] Local Hiking Trail",
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 5.0,
+        "elev": 800,
+        "tags": ["estimated", "trail", "outdoor"],
+        "dlat": 0.05,
+        "dlon": -0.03,
+    },
+    {
+        "name_tmpl": "[Estimated] Scenic Overlook Trail",
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 3.5,
+        "elev": 600,
+        "tags": ["estimated", "views", "outdoor"],
+        "dlat": -0.04,
+        "dlon": 0.06,
+    },
+    {
+        "name_tmpl": "[Estimated] Nearby State Park",
+        "type": "hiking",
+        "difficulty": "easy",
+        "miles": 2.5,
+        "elev": 200,
+        "tags": ["estimated", "park", "family-friendly"],
+        "dlat": 0.02,
+        "dlon": 0.04,
+    },
+    {
+        "name_tmpl": "[Estimated] Local Cycling Route",
+        "type": "cycling",
+        "difficulty": "moderate",
+        "miles": 15.0,
+        "elev": 300,
+        "tags": ["estimated", "cycling", "bike"],
+        "dlat": -0.06,
+        "dlon": -0.05,
+    },
+    {
+        "name_tmpl": "[Estimated] Waterfront Bike Path",
+        "type": "cycling",
+        "difficulty": "easy",
+        "miles": 10.0,
+        "elev": 100,
+        "tags": ["estimated", "cycling", "waterfront"],
+        "dlat": 0.07,
+        "dlon": 0.02,
+    },
+    {
+        "name_tmpl": "[Estimated] Community Recreation Area",
+        "type": "outdoor",
+        "difficulty": "easy",
+        "miles": 2.0,
+        "elev": 50,
+        "tags": ["estimated", "outdoor", "family-friendly"],
+        "dlat": -0.02,
+        "dlon": -0.07,
+    },
+    {
+        "name_tmpl": "[Estimated] Local Nature Reserve",
+        "type": "hiking",
+        "difficulty": "easy",
+        "miles": 3.0,
+        "elev": 300,
+        "tags": ["estimated", "nature", "wildlife"],
+        "dlat": 0.08,
+        "dlon": -0.01,
+    },
+    {
+        "name_tmpl": "[Estimated] Lakeside Trail",
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 4.0,
+        "elev": 400,
+        "tags": ["estimated", "lake", "trail"],
+        "dlat": -0.03,
+        "dlon": 0.08,
+    },
 ]
 
 
@@ -73,25 +145,25 @@ def _generic_fallback(
     results: list[ActivityResult] = []
     for tmpl in _GENERIC_TEMPLATES:
         # Filter by requested type (broad match)
-        if type_lower and not any(
-            tmpl["type"] in t or t in tmpl["type"] for t in type_lower
-        ):
+        if type_lower and not any(tmpl["type"] in t or t in tmpl["type"] for t in type_lower):
             continue
         a_lat = lat + tmpl["dlat"]
         a_lon = lon + tmpl["dlon"]
-        results.append(ActivityResult(
-            activity_id=f"template-{tmpl['name_tmpl'].lower().replace(' ', '-').replace('[', '').replace(']', '')}",
-            name=tmpl["name_tmpl"],
-            location_coordinates=(a_lat, a_lon),
-            activity_type=tmpl["type"],
-            difficulty=tmpl["difficulty"],
-            elevation_gain_ft=tmpl["elev"],
-            distance_miles=tmpl["miles"],
-            description=f"Estimated location — verify before visiting",
-            tags=tmpl["tags"],
-            data_age_minutes=0,
-            confidence="estimated",
-        ))
+        results.append(
+            ActivityResult(
+                activity_id=f"template-{tmpl['name_tmpl'].lower().replace(' ', '-').replace('[', '').replace(']', '')}",
+                name=tmpl["name_tmpl"],
+                location_coordinates=(a_lat, a_lon),
+                activity_type=tmpl["type"],
+                difficulty=tmpl["difficulty"],
+                elevation_gain_ft=tmpl["elev"],
+                distance_miles=tmpl["miles"],
+                description="Estimated location — verify before visiting",
+                tags=tmpl["tags"],
+                data_age_minutes=0,
+                confidence="estimated",
+            )
+        )
     # If no type match, return all templates
     if not results:
         return _generic_fallback(coordinates, radius_miles, [], fitness_level)
@@ -104,166 +176,467 @@ def _generic_fallback(
 # ─────────────────────────────────────────────────────────────────────────────
 _STATIC_PNW_TRAILS: list[dict] = [
     # ── Issaquah Alps (closest to Sammamish, intermediate/advanced) ───────
-    {"name": "West Tiger 3 via West Tiger Railroad Grade", "lat": 47.5166, "lon": -121.9813,
-     "type": "hiking", "difficulty": "hard", "miles": 5.4, "elev": 2100,
-     "tags": ["summit", "views", "strenuous", "Issaquah-Alps"]},
-    {"name": "West Tiger 1 & 2 Loop", "lat": 47.5201, "lon": -121.9743,
-     "type": "hiking", "difficulty": "hard", "miles": 9.5, "elev": 2900,
-     "tags": ["summit", "views", "strenuous", "Issaquah-Alps", "advanced"]},
-    {"name": "East Tiger Mountain Trail", "lat": 47.4930, "lon": -121.9372,
-     "type": "hiking", "difficulty": "hard", "miles": 6.6, "elev": 1900,
-     "tags": ["summit", "views", "strenuous", "Issaquah-Alps", "advanced", "remote"]},
-    {"name": "Squak Mountain State Park — Central Peak Loop", "lat": 47.5194, "lon": -122.0397,
-     "type": "hiking", "difficulty": "moderate", "miles": 5.0, "elev": 1200,
-     "tags": ["forest", "wildflowers", "quiet", "Issaquah-Alps"]},
-    {"name": "Cougar Mountain — Red Town to Wilderness Peak", "lat": 47.5301, "lon": -122.0742,
-     "type": "hiking", "difficulty": "moderate", "miles": 7.5, "elev": 1100,
-     "tags": ["forest", "nature-reserve", "Issaquah-Alps", "loop"]},
-    {"name": "Grand Ridge Park — Grand Ridge Trail", "lat": 47.5932, "lon": -122.0156,
-     "type": "hiking", "difficulty": "moderate", "miles": 4.8, "elev": 650,
-     "tags": ["forest", "ridge", "views", "Sammamish-adjacent"]},
+    {
+        "name": "West Tiger 3 via West Tiger Railroad Grade",
+        "lat": 47.5166,
+        "lon": -121.9813,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 5.4,
+        "elev": 2100,
+        "tags": ["summit", "views", "strenuous", "Issaquah-Alps"],
+    },
+    {
+        "name": "West Tiger 1 & 2 Loop",
+        "lat": 47.5201,
+        "lon": -121.9743,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 9.5,
+        "elev": 2900,
+        "tags": ["summit", "views", "strenuous", "Issaquah-Alps", "advanced"],
+    },
+    {
+        "name": "East Tiger Mountain Trail",
+        "lat": 47.4930,
+        "lon": -121.9372,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 6.6,
+        "elev": 1900,
+        "tags": ["summit", "views", "strenuous", "Issaquah-Alps", "advanced", "remote"],
+    },
+    {
+        "name": "Squak Mountain State Park — Central Peak Loop",
+        "lat": 47.5194,
+        "lon": -122.0397,
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 5.0,
+        "elev": 1200,
+        "tags": ["forest", "wildflowers", "quiet", "Issaquah-Alps"],
+    },
+    {
+        "name": "Cougar Mountain — Red Town to Wilderness Peak",
+        "lat": 47.5301,
+        "lon": -122.0742,
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 7.5,
+        "elev": 1100,
+        "tags": ["forest", "nature-reserve", "Issaquah-Alps", "loop"],
+    },
+    {
+        "name": "Grand Ridge Park — Grand Ridge Trail",
+        "lat": 47.5932,
+        "lon": -122.0156,
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 4.8,
+        "elev": 650,
+        "tags": ["forest", "ridge", "views", "Sammamish-adjacent"],
+    },
     # ── Snoqualmie corridor (30–45 min from Sammamish, top hikes) ─────────
-    {"name": "Mount Si Trail", "lat": 47.4882, "lon": -121.7254,
-     "type": "hiking", "difficulty": "hard", "miles": 8.0, "elev": 3150,
-     "tags": ["summit", "views", "strenuous", "iconic", "exposed"]},
-    {"name": "Mount Teneriffe via Teneriffe Falls", "lat": 47.4734, "lon": -121.7179,
-     "type": "hiking", "difficulty": "hard", "miles": 13.8, "elev": 3800,
-     "tags": ["summit", "waterfall", "strenuous", "advanced", "exposed"]},
-    {"name": "Little Si Trail", "lat": 47.4897, "lon": -121.7333,
-     "type": "hiking", "difficulty": "moderate", "miles": 5.0, "elev": 1200,
-     "tags": ["views", "forest", "family-friendly"]},
-    {"name": "Rattlesnake Ledge Trail", "lat": 47.4330, "lon": -121.7699,
-     "type": "hiking", "difficulty": "moderate", "miles": 4.0, "elev": 1100,
-     "tags": ["views", "popular", "exposed"]},
-    {"name": "Rattlesnake Mountain Traverse to East Peak", "lat": 47.4283, "lon": -121.7533,
-     "type": "hiking", "difficulty": "hard", "miles": 12.0, "elev": 2050,
-     "tags": ["summit", "views", "strenuous", "advanced", "exposed"]},
-    {"name": "Twin Falls Trail", "lat": 47.4511, "lon": -121.6872,
-     "type": "hiking", "difficulty": "moderate", "miles": 2.6, "elev": 500,
-     "tags": ["waterfall", "old-growth", "family-friendly"]},
-    {"name": "Franklin Falls Trail", "lat": 47.4268, "lon": -121.6261,
-     "type": "hiking", "difficulty": "easy", "miles": 2.0, "elev": 400,
-     "tags": ["waterfall", "family-friendly"]},
-    {"name": "McClellan Butte Trail", "lat": 47.4102, "lon": -121.6503,
-     "type": "hiking", "difficulty": "hard", "miles": 10.0, "elev": 3700,
-     "tags": ["summit", "views", "strenuous", "advanced", "exposed", "rocky"]},
-    {"name": "Mailbox Peak Trail (New Trail)", "lat": 47.4631, "lon": -121.6943,
-     "type": "hiking", "difficulty": "hard", "miles": 9.4, "elev": 4000,
-     "tags": ["summit", "views", "strenuous", "advanced", "exposed", "iconic"]},
-    {"name": "Dirty Harry's Balcony & Peak", "lat": 47.4423, "lon": -121.7096,
-     "type": "hiking", "difficulty": "hard", "miles": 8.4, "elev": 2800,
-     "tags": ["summit", "views", "strenuous", "advanced", "exposed"]},
-    {"name": "Ira Spring Trail to Mason Lake & Mount Defiance", "lat": 47.3842, "lon": -121.6963,
-     "type": "hiking", "difficulty": "hard", "miles": 8.0, "elev": 2900,
-     "tags": ["summit", "lake", "views", "strenuous", "advanced"]},
-    {"name": "Snow Lake Trail", "lat": 47.4463, "lon": -121.4247,
-     "type": "hiking", "difficulty": "moderate", "miles": 6.4, "elev": 1800,
-     "tags": ["alpine-lake", "views", "popular", "Snoqualmie-Pass"]},
-    {"name": "Commonwealth Basin — Red Pass", "lat": 47.4411, "lon": -121.4255,
-     "type": "hiking", "difficulty": "hard", "miles": 9.6, "elev": 2950,
-     "tags": ["alpine", "views", "strenuous", "Snoqualmie-Pass", "advanced"]},
-    {"name": "Kendall Katwalk", "lat": 47.4398, "lon": -121.4142,
-     "type": "hiking", "difficulty": "hard", "miles": 10.5, "elev": 2900,
-     "tags": ["exposed", "views", "strenuous", "advanced", "Snoqualmie-Pass", "iconic"]},
-    {"name": "Granite Mountain Lookout", "lat": 47.3962, "lon": -121.6644,
-     "type": "hiking", "difficulty": "hard", "miles": 8.6, "elev": 3800,
-     "tags": ["summit", "lookout", "views", "strenuous", "advanced", "exposed"]},
+    {
+        "name": "Mount Si Trail",
+        "lat": 47.4882,
+        "lon": -121.7254,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 8.0,
+        "elev": 3150,
+        "tags": ["summit", "views", "strenuous", "iconic", "exposed"],
+    },
+    {
+        "name": "Mount Teneriffe via Teneriffe Falls",
+        "lat": 47.4734,
+        "lon": -121.7179,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 13.8,
+        "elev": 3800,
+        "tags": ["summit", "waterfall", "strenuous", "advanced", "exposed"],
+    },
+    {
+        "name": "Little Si Trail",
+        "lat": 47.4897,
+        "lon": -121.7333,
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 5.0,
+        "elev": 1200,
+        "tags": ["views", "forest", "family-friendly"],
+    },
+    {
+        "name": "Rattlesnake Ledge Trail",
+        "lat": 47.4330,
+        "lon": -121.7699,
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 4.0,
+        "elev": 1100,
+        "tags": ["views", "popular", "exposed"],
+    },
+    {
+        "name": "Rattlesnake Mountain Traverse to East Peak",
+        "lat": 47.4283,
+        "lon": -121.7533,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 12.0,
+        "elev": 2050,
+        "tags": ["summit", "views", "strenuous", "advanced", "exposed"],
+    },
+    {
+        "name": "Twin Falls Trail",
+        "lat": 47.4511,
+        "lon": -121.6872,
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 2.6,
+        "elev": 500,
+        "tags": ["waterfall", "old-growth", "family-friendly"],
+    },
+    {
+        "name": "Franklin Falls Trail",
+        "lat": 47.4268,
+        "lon": -121.6261,
+        "type": "hiking",
+        "difficulty": "easy",
+        "miles": 2.0,
+        "elev": 400,
+        "tags": ["waterfall", "family-friendly"],
+    },
+    {
+        "name": "McClellan Butte Trail",
+        "lat": 47.4102,
+        "lon": -121.6503,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 10.0,
+        "elev": 3700,
+        "tags": ["summit", "views", "strenuous", "advanced", "exposed", "rocky"],
+    },
+    {
+        "name": "Mailbox Peak Trail (New Trail)",
+        "lat": 47.4631,
+        "lon": -121.6943,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 9.4,
+        "elev": 4000,
+        "tags": ["summit", "views", "strenuous", "advanced", "exposed", "iconic"],
+    },
+    {
+        "name": "Dirty Harry's Balcony & Peak",
+        "lat": 47.4423,
+        "lon": -121.7096,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 8.4,
+        "elev": 2800,
+        "tags": ["summit", "views", "strenuous", "advanced", "exposed"],
+    },
+    {
+        "name": "Ira Spring Trail to Mason Lake & Mount Defiance",
+        "lat": 47.3842,
+        "lon": -121.6963,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 8.0,
+        "elev": 2900,
+        "tags": ["summit", "lake", "views", "strenuous", "advanced"],
+    },
+    {
+        "name": "Snow Lake Trail",
+        "lat": 47.4463,
+        "lon": -121.4247,
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 6.4,
+        "elev": 1800,
+        "tags": ["alpine-lake", "views", "popular", "Snoqualmie-Pass"],
+    },
+    {
+        "name": "Commonwealth Basin — Red Pass",
+        "lat": 47.4411,
+        "lon": -121.4255,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 9.6,
+        "elev": 2950,
+        "tags": ["alpine", "views", "strenuous", "Snoqualmie-Pass", "advanced"],
+    },
+    {
+        "name": "Kendall Katwalk",
+        "lat": 47.4398,
+        "lon": -121.4142,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 10.5,
+        "elev": 2900,
+        "tags": ["exposed", "views", "strenuous", "advanced", "Snoqualmie-Pass", "iconic"],
+    },
+    {
+        "name": "Granite Mountain Lookout",
+        "lat": 47.3962,
+        "lon": -121.6644,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 8.6,
+        "elev": 3800,
+        "tags": ["summit", "lookout", "views", "strenuous", "advanced", "exposed"],
+    },
     # ── North Bend / Cedar River Watershed area ───────────────────────────
-    {"name": "Lake Serene & Bridal Veil Falls", "lat": 47.7944, "lon": -121.3921,
-     "type": "hiking", "difficulty": "hard", "miles": 8.0, "elev": 4200,
-     "tags": ["alpine-lake", "waterfall", "strenuous", "advanced", "exposed", "views"]},
-    {"name": "Barclay Lake & Stone Lake Loop", "lat": 47.7888, "lon": -121.4559,
-     "type": "hiking", "difficulty": "moderate", "miles": 6.0, "elev": 1500,
-     "tags": ["alpine-lake", "forest", "views"]},
+    {
+        "name": "Lake Serene & Bridal Veil Falls",
+        "lat": 47.7944,
+        "lon": -121.3921,
+        "type": "hiking",
+        "difficulty": "hard",
+        "miles": 8.0,
+        "elev": 4200,
+        "tags": ["alpine-lake", "waterfall", "strenuous", "advanced", "exposed", "views"],
+    },
+    {
+        "name": "Barclay Lake & Stone Lake Loop",
+        "lat": 47.7888,
+        "lon": -121.4559,
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 6.0,
+        "elev": 1500,
+        "tags": ["alpine-lake", "forest", "views"],
+    },
     # ── Stevens Pass / Skykomish area (within 50 mi) ──────────────────────
-    {"name": "Chain Lakes Loop (Mt Baker area)", "lat": 47.8441, "lon": -121.6830,
-     "type": "hiking", "difficulty": "moderate", "miles": 6.5, "elev": 1300,
-     "tags": ["alpine-lake", "wildflowers", "views"]},
-    {"name": "Wallace Falls Trail", "lat": 47.8671, "lon": -121.6800,
-     "type": "hiking", "difficulty": "moderate", "miles": 5.6, "elev": 1350,
-     "tags": ["waterfall", "forest", "views"]},
-    {"name": "Heybrook Lookout", "lat": 47.8354, "lon": -121.5908,
-     "type": "hiking", "difficulty": "moderate", "miles": 2.6, "elev": 850,
-     "tags": ["lookout", "views", "short", "family-friendly"]},
+    {
+        "name": "Chain Lakes Loop (Mt Baker area)",
+        "lat": 47.8441,
+        "lon": -121.6830,
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 6.5,
+        "elev": 1300,
+        "tags": ["alpine-lake", "wildflowers", "views"],
+    },
+    {
+        "name": "Wallace Falls Trail",
+        "lat": 47.8671,
+        "lon": -121.6800,
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 5.6,
+        "elev": 1350,
+        "tags": ["waterfall", "forest", "views"],
+    },
+    {
+        "name": "Heybrook Lookout",
+        "lat": 47.8354,
+        "lon": -121.5908,
+        "type": "hiking",
+        "difficulty": "moderate",
+        "miles": 2.6,
+        "elev": 850,
+        "tags": ["lookout", "views", "short", "family-friendly"],
+    },
     # ── Bellevue / Kirkland / Redmond (easy/nearby, lower priority for advanced) ──
-    {"name": "Bridle Trails State Park Loop", "lat": 47.6769, "lon": -122.1651,
-     "type": "hiking", "difficulty": "easy", "miles": 3.0, "elev": 100,
-     "tags": ["family-friendly", "forest", "equestrian"]},
-    {"name": "Mercer Slough Nature Park", "lat": 47.5758, "lon": -122.1836,
-     "type": "hiking", "difficulty": "easy", "miles": 2.5, "elev": 20,
-     "tags": ["wetland", "birdwatching", "accessible", "family-friendly"]},
-    {"name": "Marymoor Park Trail", "lat": 47.6674, "lon": -122.1074,
-     "type": "hiking", "difficulty": "easy", "miles": 3.0, "elev": 50,
-     "tags": ["family-friendly", "lake-view", "accessible", "dog-friendly"]},
-    {"name": "Lake Sammamish State Park Loop", "lat": 47.5762, "lon": -122.0659,
-     "type": "hiking", "difficulty": "easy", "miles": 2.0, "elev": 50,
-     "tags": ["lake", "family-friendly", "beach", "picnic"]},
+    {
+        "name": "Bridle Trails State Park Loop",
+        "lat": 47.6769,
+        "lon": -122.1651,
+        "type": "hiking",
+        "difficulty": "easy",
+        "miles": 3.0,
+        "elev": 100,
+        "tags": ["family-friendly", "forest", "equestrian"],
+    },
+    {
+        "name": "Mercer Slough Nature Park",
+        "lat": 47.5758,
+        "lon": -122.1836,
+        "type": "hiking",
+        "difficulty": "easy",
+        "miles": 2.5,
+        "elev": 20,
+        "tags": ["wetland", "birdwatching", "accessible", "family-friendly"],
+    },
+    {
+        "name": "Marymoor Park Trail",
+        "lat": 47.6674,
+        "lon": -122.1074,
+        "type": "hiking",
+        "difficulty": "easy",
+        "miles": 3.0,
+        "elev": 50,
+        "tags": ["family-friendly", "lake-view", "accessible", "dog-friendly"],
+    },
+    {
+        "name": "Lake Sammamish State Park Loop",
+        "lat": 47.5762,
+        "lon": -122.0659,
+        "type": "hiking",
+        "difficulty": "easy",
+        "miles": 2.0,
+        "elev": 50,
+        "tags": ["lake", "family-friendly", "beach", "picnic"],
+    },
     # ── Tukwila / Auburn / Federal Way (south) ────────────────────────────
-    {"name": "Dash Point State Park", "lat": 47.3243, "lon": -122.4091,
-     "type": "hiking", "difficulty": "easy", "miles": 3.5, "elev": 200,
-     "description": "Forested trails leading to a drift-log beach on Puget Sound with tide pools.",
-     "tags": ["beach", "forest", "family-friendly"]},
-    {"name": "Point Defiance Park Trails", "lat": 47.3113, "lon": -122.5185,
-     "type": "hiking", "difficulty": "easy", "miles": 5.0, "elev": 200,
-     "description": "Old-growth forest with waterfront views, accessible family-friendly loops.",
-     "tags": ["waterfront", "old-growth", "beach", "family-friendly"]},
+    {
+        "name": "Dash Point State Park",
+        "lat": 47.3243,
+        "lon": -122.4091,
+        "type": "hiking",
+        "difficulty": "easy",
+        "miles": 3.5,
+        "elev": 200,
+        "description": "Forested trails leading to a drift-log beach on Puget Sound with tide pools.",
+        "tags": ["beach", "forest", "family-friendly"],
+    },
+    {
+        "name": "Point Defiance Park Trails",
+        "lat": 47.3113,
+        "lon": -122.5185,
+        "type": "hiking",
+        "difficulty": "easy",
+        "miles": 5.0,
+        "elev": 200,
+        "description": "Old-growth forest with waterfront views, accessible family-friendly loops.",
+        "tags": ["waterfront", "old-growth", "beach", "family-friendly"],
+    },
     # ── Non-hiking: cycling ────────────────────────────────────────────────
-    {"name": "Sammamish River Trail", "lat": 47.6800, "lon": -122.1200,
-     "type": "cycling", "difficulty": "easy", "miles": 10.7, "elev": 70,
-     "description": "Paved multi-use trail following the Sammamish River from Redmond to Bothell. Popular for families and fitness rides.",
-     "tags": ["paved", "family-friendly", "riverside", "bike"]},
-    {"name": "Burke-Gilman Trail (Redmond to Lake Forest Park)", "lat": 47.6712, "lon": -122.1061,
-     "type": "cycling", "difficulty": "easy", "miles": 14.5, "elev": 100,
-     "description": "Iconic Seattle-area paved trail connecting Redmond, Kenmore, and Lake Forest Park along the Sammamish River and Lake Washington.",
-     "tags": ["paved", "lake-view", "bike", "multi-use"]},
-    {"name": "Preston-Snoqualmie Trail", "lat": 47.5219, "lon": -121.9471,
-     "type": "cycling", "difficulty": "moderate", "miles": 7.5, "elev": 600,
-     "description": "Former railroad grade through second-growth forest from Preston to the Snoqualmie Valley. Gravel surface, gentle grade.",
-     "tags": ["gravel", "forest", "bike", "rail-trail"]},
-    {"name": "Coal Creek Trail", "lat": 47.5601, "lon": -122.1485,
-     "type": "cycling", "difficulty": "easy", "miles": 4.0, "elev": 80,
-     "description": "Paved connector trail through forested ravine between Bellevue and Factoria, good for a short leisure ride.",
-     "tags": ["paved", "forest", "bike", "family-friendly"]},
-    {"name": "Iron Horse State Park Trail (John Wayne Pioneer Trail)", "lat": 47.4063, "lon": -121.9835,
-     "type": "cycling", "difficulty": "moderate", "miles": 25.0, "elev": 400,
-     "description": "Former Milwaukee Road railroad grade, crushed gravel surface, following the Snoqualmie River past tunnels and trestles.",
-     "tags": ["gravel", "rail-trail", "bike", "tunnel", "historic"]},
+    {
+        "name": "Sammamish River Trail",
+        "lat": 47.6800,
+        "lon": -122.1200,
+        "type": "cycling",
+        "difficulty": "easy",
+        "miles": 10.7,
+        "elev": 70,
+        "description": "Paved multi-use trail following the Sammamish River from Redmond to Bothell. Popular for families and fitness rides.",
+        "tags": ["paved", "family-friendly", "riverside", "bike"],
+    },
+    {
+        "name": "Burke-Gilman Trail (Redmond to Lake Forest Park)",
+        "lat": 47.6712,
+        "lon": -122.1061,
+        "type": "cycling",
+        "difficulty": "easy",
+        "miles": 14.5,
+        "elev": 100,
+        "description": "Iconic Seattle-area paved trail connecting Redmond, Kenmore, and Lake Forest Park along the Sammamish River and Lake Washington.",
+        "tags": ["paved", "lake-view", "bike", "multi-use"],
+    },
+    {
+        "name": "Preston-Snoqualmie Trail",
+        "lat": 47.5219,
+        "lon": -121.9471,
+        "type": "cycling",
+        "difficulty": "moderate",
+        "miles": 7.5,
+        "elev": 600,
+        "description": "Former railroad grade through second-growth forest from Preston to the Snoqualmie Valley. Gravel surface, gentle grade.",
+        "tags": ["gravel", "forest", "bike", "rail-trail"],
+    },
+    {
+        "name": "Coal Creek Trail",
+        "lat": 47.5601,
+        "lon": -122.1485,
+        "type": "cycling",
+        "difficulty": "easy",
+        "miles": 4.0,
+        "elev": 80,
+        "description": "Paved connector trail through forested ravine between Bellevue and Factoria, good for a short leisure ride.",
+        "tags": ["paved", "forest", "bike", "family-friendly"],
+    },
+    {
+        "name": "Iron Horse State Park Trail (John Wayne Pioneer Trail)",
+        "lat": 47.4063,
+        "lon": -121.9835,
+        "type": "cycling",
+        "difficulty": "moderate",
+        "miles": 25.0,
+        "elev": 400,
+        "description": "Former Milwaukee Road railroad grade, crushed gravel surface, following the Snoqualmie River past tunnels and trestles.",
+        "tags": ["gravel", "rail-trail", "bike", "tunnel", "historic"],
+    },
     # ── Non-hiking: kayaking / paddling ───────────────────────────────────
-    {"name": "Lake Sammamish Kayak Launch (East Beach)", "lat": 47.5762, "lon": -122.0659,
-     "type": "kayaking", "difficulty": "easy", "miles": 5.0, "elev": 0,
-     "description": "Calm freshwater paddling on Lake Sammamish with mountain views. Rentals and launch access at the state park.",
-     "tags": ["lake", "kayak", "paddle", "family-friendly"]},
-    {"name": "Lake Union Kayak (Center for Wooden Boats)", "lat": 47.6260, "lon": -122.3374,
-     "type": "kayaking", "difficulty": "easy", "miles": 4.0, "elev": 0,
-     "description": "Paddling on Lake Union with views of Seattle skyline and houseboats. Rentals available at the Center for Wooden Boats.",
-     "tags": ["lake", "kayak", "paddle", "urban", "views"]},
-    {"name": "Snoqualmie River Paddle (Fall City)", "lat": 47.5728, "lon": -121.9129,
-     "type": "kayaking", "difficulty": "moderate", "miles": 8.0, "elev": 0,
-     "description": "Flatwater river paddle through farmland with views of the Cascade foothills. Class I-II riffles; appropriate for intermediate paddlers.",
-     "tags": ["river", "kayak", "paddle", "scenic"]},
+    {
+        "name": "Lake Sammamish Kayak Launch (East Beach)",
+        "lat": 47.5762,
+        "lon": -122.0659,
+        "type": "kayaking",
+        "difficulty": "easy",
+        "miles": 5.0,
+        "elev": 0,
+        "description": "Calm freshwater paddling on Lake Sammamish with mountain views. Rentals and launch access at the state park.",
+        "tags": ["lake", "kayak", "paddle", "family-friendly"],
+    },
+    {
+        "name": "Lake Union Kayak (Center for Wooden Boats)",
+        "lat": 47.6260,
+        "lon": -122.3374,
+        "type": "kayaking",
+        "difficulty": "easy",
+        "miles": 4.0,
+        "elev": 0,
+        "description": "Paddling on Lake Union with views of Seattle skyline and houseboats. Rentals available at the Center for Wooden Boats.",
+        "tags": ["lake", "kayak", "paddle", "urban", "views"],
+    },
+    {
+        "name": "Snoqualmie River Paddle (Fall City)",
+        "lat": 47.5728,
+        "lon": -121.9129,
+        "type": "kayaking",
+        "difficulty": "moderate",
+        "miles": 8.0,
+        "elev": 0,
+        "description": "Flatwater river paddle through farmland with views of the Cascade foothills. Class I-II riffles; appropriate for intermediate paddlers.",
+        "tags": ["river", "kayak", "paddle", "scenic"],
+    },
     # ── Non-hiking: beach / waterfront ────────────────────────────────────
-    {"name": "Alki Beach Park", "lat": 47.5760, "lon": -122.4175,
-     "type": "beach", "difficulty": "easy", "miles": 2.5, "elev": 0,
-     "description": "Seattle's most popular urban beach with views of downtown, the Olympics, and ferry traffic. Walk, bike, or just relax.",
-     "tags": ["beach", "waterfront", "family-friendly", "views", "accessible"]},
-    {"name": "Saltwater State Park", "lat": 47.3640, "lon": -122.3169,
-     "type": "beach", "difficulty": "easy", "miles": 2.0, "elev": 80,
-     "description": "Quiet Puget Sound beach with a shallow cove for swimming, scuba diving, and beachcombing. Forested bluffs above.",
-     "tags": ["beach", "diving", "picnic", "family-friendly"]},
-    {"name": "Deception Pass State Park (Rosario Beach)", "lat": 48.4071, "lon": -122.6496,
-     "type": "beach", "difficulty": "easy", "miles": 3.0, "elev": 100,
-     "description": "Dramatic tidal shoreline with basalt formations, tide pools, and views of Deception Pass bridge. Short forest loop trail included.",
-     "tags": ["beach", "tide-pools", "scenic", "family-friendly"]},
+    {
+        "name": "Alki Beach Park",
+        "lat": 47.5760,
+        "lon": -122.4175,
+        "type": "beach",
+        "difficulty": "easy",
+        "miles": 2.5,
+        "elev": 0,
+        "description": "Seattle's most popular urban beach with views of downtown, the Olympics, and ferry traffic. Walk, bike, or just relax.",
+        "tags": ["beach", "waterfront", "family-friendly", "views", "accessible"],
+    },
+    {
+        "name": "Saltwater State Park",
+        "lat": 47.3640,
+        "lon": -122.3169,
+        "type": "beach",
+        "difficulty": "easy",
+        "miles": 2.0,
+        "elev": 80,
+        "description": "Quiet Puget Sound beach with a shallow cove for swimming, scuba diving, and beachcombing. Forested bluffs above.",
+        "tags": ["beach", "diving", "picnic", "family-friendly"],
+    },
+    {
+        "name": "Deception Pass State Park (Rosario Beach)",
+        "lat": 48.4071,
+        "lon": -122.6496,
+        "type": "beach",
+        "difficulty": "easy",
+        "miles": 3.0,
+        "elev": 100,
+        "description": "Dramatic tidal shoreline with basalt formations, tide pools, and views of Deception Pass bridge. Short forest loop trail included.",
+        "tags": ["beach", "tide-pools", "scenic", "family-friendly"],
+    },
 ]
 
 # Difficulty ordering for filtering (lower = easier)
 _DIFFICULTY_ORDER = {"easy": 0, "moderate": 1, "hard": 2}
 # Map fitness level → minimum difficulty to include in results
 _FITNESS_MIN_DIFFICULTY = {
-    "beginner":     "easy",
+    "beginner": "easy",
     "intermediate": "moderate",
-    "advanced":     "moderate",   # advanced users can still choose moderate
-    "elite":        "hard",
+    "advanced": "moderate",  # advanced users can still choose moderate
+    "elite": "hard",
 }
 
 
@@ -272,8 +645,10 @@ def _haversine_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> floa
     R = 3958.8
     d_lat = math.radians(lat2 - lat1)
     d_lon = math.radians(lon2 - lon1)
-    a = (math.sin(d_lat / 2) ** 2
-         + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(d_lon / 2) ** 2)
+    a = (
+        math.sin(d_lat / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(d_lon / 2) ** 2
+    )
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
@@ -294,7 +669,12 @@ def _static_fallback(
     if not _is_in_pnw(lat, lon):
         results = _generic_fallback(coordinates, radius_miles, activity_types, fitness_level)
         if results:
-            logger.info("Static fallback: non-PNW user (%g, %g) — returning %d template activities", lat, lon, len(results))
+            logger.info(
+                "Static fallback: non-PNW user (%g, %g) — returning %d template activities",
+                lat,
+                lon,
+                len(results),
+            )
             return results, "static_template"
         return [], "static_template"
 
@@ -316,8 +696,7 @@ def _static_fallback(
             continue
         trail_type = trail["type"]
         if type_lower and not any(
-            t in trail_type or trail_type in t or "outdoor" in t or "trail" in t
-            for t in type_lower
+            t in trail_type or trail_type in t or "outdoor" in t or "trail" in t for t in type_lower
         ):
             continue
 
@@ -328,19 +707,21 @@ def _static_fallback(
         raw_desc = trail.get("description", "")
         safe_desc = sanitize_tool_text(raw_desc)
 
-        results.append(ActivityResult(
-            activity_id=f"static-{trail['name'].lower().replace(' ', '-')}",
-            name=safe_name,
-            location_coordinates=(trail["lat"], trail["lon"]),
-            activity_type=trail["type"],
-            difficulty=trail["difficulty"],
-            elevation_gain_ft=trail["elev"],
-            distance_miles=trail["miles"],
-            description=safe_desc,
-            tags=trail["tags"],
-            data_age_minutes=0,
-            confidence="estimated",
-        ))
+        results.append(
+            ActivityResult(
+                activity_id=f"static-{trail['name'].lower().replace(' ', '-')}",
+                name=safe_name,
+                location_coordinates=(trail["lat"], trail["lon"]),
+                activity_type=trail["type"],
+                difficulty=trail["difficulty"],
+                elevation_gain_ft=trail["elev"],
+                distance_miles=trail["miles"],
+                description=safe_desc,
+                tags=trail["tags"],
+                data_age_minutes=0,
+                confidence="estimated",
+            )
+        )
 
     # Sort: prefer harder trails for advanced users; within same difficulty tier, sort by distance
     def _sort_key(r: ActivityResult) -> tuple[int, float]:
@@ -358,8 +739,9 @@ def _static_fallback(
 
     # Filter out trails below minimum difficulty for advanced users (after sorting)
     if min_tier > 0:
-        results = [r for r in results if _DIFFICULTY_ORDER.get(r.difficulty, 0) >= min_tier] + \
-                  [r for r in results if _DIFFICULTY_ORDER.get(r.difficulty, 0) < min_tier]
+        results = [r for r in results if _DIFFICULTY_ORDER.get(r.difficulty, 0) >= min_tier] + [
+            r for r in results if _DIFFICULTY_ORDER.get(r.difficulty, 0) < min_tier
+        ]
 
     return results[:20], "static_pnw"
 
@@ -398,8 +780,12 @@ class OverpassActivities:
 
         # ── Circuit-breaker: skip live fetch if cooldown is active ────────
         if self._cache is not None and self._cache.get(_OVERPASS_COOLDOWN_KEY):
-            logger.info("Overpass circuit-breaker active — skipping live fetch, using static fallback")
-            results, source = _static_fallback(coordinates, radius_miles, activity_types, fitness_level)
+            logger.info(
+                "Overpass circuit-breaker active — skipping live fetch, using static fallback"
+            )
+            results, source = _static_fallback(
+                coordinates, radius_miles, activity_types, fitness_level
+            )
             return results, source
 
         # ── Build cache key ─────────────────────────────────────────
@@ -410,7 +796,9 @@ class OverpassActivities:
         from nexus.resilience import GracefulDegradation
         from nexus.state.confidence import DataConfidence
 
-        static_results, static_source = _static_fallback(coordinates, radius_miles, activity_types, fitness_level)
+        static_results, static_source = _static_fallback(
+            coordinates, radius_miles, activity_types, fitness_level
+        )
 
         if self._cache is None:
             # Test context — no caching; run live fetch directly
@@ -420,7 +808,9 @@ class OverpassActivities:
             return static_results, static_source
 
         async def _fetcher() -> list[ActivityResult]:
-            results = await self._live_fetch(coordinates, radius_miles, activity_types, fitness_level)
+            results = await self._live_fetch(
+                coordinates, radius_miles, activity_types, fitness_level
+            )
             if not results:
                 raise RuntimeError("Overpass returned 0 named results")
             return results
@@ -456,8 +846,10 @@ class OverpassActivities:
         """Attempt live Overpass fetch across mirrors. Updates circuit-breaker on failure."""
         lat, lon = coordinates
         radius_meters = int(radius_miles * 1609)
-        is_hiking = any("hik" in t.lower() or "trail" in t.lower() or "outdoor" in t.lower()
-                        for t in activity_types)
+        is_hiking = any(
+            "hik" in t.lower() or "trail" in t.lower() or "outdoor" in t.lower()
+            for t in activity_types
+        )
 
         tags = _activity_types_to_tags(activity_types)
         query_parts: list[str] = []
@@ -491,13 +883,10 @@ class OverpassActivities:
             )
 
         overpass_query = (
-            "[out:json][timeout:25];\n(\n"
-            + "\n".join(query_parts)
-            + "\n);\nout center 30;"
+            "[out:json][timeout:25];\n(\n" + "\n".join(query_parts) + "\n);\nout center 30;"
         )
 
         _HEADERS = {"User-Agent": "nexus-planner/1.0 (weekend-activity-planner)"}
-        from nexus.resilience import GracefulDegradation
 
         for endpoint in OVERPASS_ENDPOINTS:
             try:
@@ -505,7 +894,9 @@ class OverpassActivities:
                     resp = await client.post(endpoint, data={"data": overpass_query})
                     if resp.status_code == 429:
                         # Rate-limited — terminal; break immediately (ISSUE-03)
-                        logger.info("Overpass %s → rate limited (429); skipping remaining mirrors", endpoint)
+                        logger.info(
+                            "Overpass %s → rate limited (429); skipping remaining mirrors", endpoint
+                        )
                         self._increment_fail_counter()
                         break
                     if resp.status_code == 200:
@@ -538,7 +929,8 @@ class OverpassActivities:
             logger.warning(
                 "Overpass circuit-breaker activated after %d failures — "
                 "live fetch paused for %d seconds",
-                count, _CIRCUIT_BREAKER_COOLDOWN_S,
+                count,
+                _CIRCUIT_BREAKER_COOLDOWN_S,
             )
 
 
@@ -552,10 +944,10 @@ def _activity_types_to_tags(activity_types: list[str]) -> list[tuple[str, str]]:
             ("natural", "peak"),
         ],
         "cycling": [("highway", "cycleway"), ("route", "bicycle")],
-        "biking":  [("highway", "cycleway"), ("route", "bicycle")],
-        "beach":   [("natural", "beach"), ("leisure", "beach_resort")],
-        "park":    [("leisure", "park"), ("leisure", "recreation_ground")],
-        "trail":   [("highway", "path"), ("highway", "footway")],
+        "biking": [("highway", "cycleway"), ("route", "bicycle")],
+        "beach": [("natural", "beach"), ("leisure", "beach_resort")],
+        "park": [("leisure", "park"), ("leisure", "recreation_ground")],
+        "trail": [("highway", "path"), ("highway", "footway")],
         "outdoor": [("leisure", "nature_reserve"), ("highway", "path"), ("natural", "peak")],
     }
 
@@ -582,8 +974,11 @@ def _parse_overpass_results(
 
     # Exclude well-known recreational parks that are NOT hiking destinations
     _EXCLUDE_NAMES = {
-        "marymoor park", "lake sammamish state park", "bridle trails state park",
-        "mercer slough nature park", "coal creek trail",
+        "marymoor park",
+        "lake sammamish state park",
+        "bridle trails state park",
+        "mercer slough nature park",
+        "coal creek trail",
     }
 
     for element in data.get("elements", []):
@@ -598,6 +993,7 @@ def _parse_overpass_results(
 
         # ISSUE-16: sanitize name; drop elements with injected names
         from nexus.tools.sanitize import sanitize_activity_name, sanitize_tool_text
+
         safe_name = sanitize_activity_name(name)
         if safe_name is None:
             continue
@@ -623,19 +1019,21 @@ def _parse_overpass_results(
         raw_desc = tags.get("description", "")
         safe_desc = sanitize_tool_text(raw_desc)
 
-        results.append(ActivityResult(
-            activity_id=f"osm-{element.get('id', name)}",
-            name=safe_name,
-            location_coordinates=(lat, lon),
-            activity_type=detected_type,
-            difficulty=difficulty,
-            elevation_gain_ft=elev_gain,
-            distance_miles=raw_dist_miles,
-            description=safe_desc,
-            tags=list(tags.keys()),
-            data_age_minutes=0,
-            confidence="verified",
-        ))
+        results.append(
+            ActivityResult(
+                activity_id=f"osm-{element.get('id', name)}",
+                name=safe_name,
+                location_coordinates=(lat, lon),
+                activity_type=detected_type,
+                difficulty=difficulty,
+                elevation_gain_ft=elev_gain,
+                distance_miles=raw_dist_miles,
+                description=safe_desc,
+                tags=list(tags.keys()),
+                data_age_minutes=0,
+                confidence="verified",
+            )
+        )
 
     # Sort: put difficulty-matching results first
     min_diff = _FITNESS_MIN_DIFFICULTY.get(fitness_level.lower(), "easy")
@@ -663,7 +1061,9 @@ def _detect_activity_type(tags: dict, requested_types: list[str]) -> str:
     return requested_types[0] if requested_types else "outdoor"
 
 
-def _estimate_difficulty(tags: dict, elevation_gain_ft: float = 0, distance_miles: float = 0) -> str:
+def _estimate_difficulty(
+    tags: dict, elevation_gain_ft: float = 0, distance_miles: float = 0
+) -> str:
     """Estimate difficulty from OSM tags with elevation/distance heuristic fallback."""
     sac_scale = tags.get("sac_scale", "")
     if "demanding" in sac_scale or "mountain" in sac_scale:

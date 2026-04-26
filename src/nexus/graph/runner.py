@@ -23,7 +23,7 @@ from nexus.state.graph_state import WeekendPlanState
 from nexus.state.helpers import build_initial_state
 
 if TYPE_CHECKING:
-    from nexus.web.progress import PlanningProgress
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +84,7 @@ async def run_planning(
     import nexus.runtime as runtime
     from nexus.llm.router import ModelRouter
     from nexus.tools.registry import build_registry
+
     _model_router = runtime.model_router or ModelRouter(config)
     _tool_registry = runtime.tool_registry or build_registry(config)
 
@@ -124,6 +125,7 @@ async def run_planning(
 
         # PRD §6.5: 90-second planning time cap (corrected from 900s — ISSUE-06)
         from nexus.resilience import HardConstraintDataUnavailable
+
         try:
             await asyncio.wait_for(_stream_with_progress(), timeout=90.0)
         except HardConstraintDataUnavailable as _hc_exc:

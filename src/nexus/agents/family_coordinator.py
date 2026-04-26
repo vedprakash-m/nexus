@@ -59,6 +59,7 @@ async def family_coordinator_review(state: WeekendPlanState) -> dict:
     from nexus.tools.providers.coverage import estimate_cell_coverage
 
     from nexus.config import NexusConfig
+
     _config = state.get("config")
     if isinstance(_config, NexusConfig):
         _coverage_threshold = _config.planning.cell_coverage_road_proximity_miles
@@ -82,9 +83,7 @@ async def family_coordinator_review(state: WeekendPlanState) -> dict:
 
     # ── Hard constraint: teen + no cell service ───────────────────────────
     members = getattr(family_profile, "members", [])
-    has_teen = any(
-        TEEN_AGE_MIN <= getattr(m, "age", 0) <= TEEN_AGE_MAX for m in members
-    )
+    has_teen = any(TEEN_AGE_MIN <= getattr(m, "age", 0) <= TEEN_AGE_MAX for m in members)
     requires_cell = any(getattr(m, "requires_cell_service", False) for m in members)
 
     if ((_require_teen_cell and has_teen) or requires_cell) and not coverage.has_likely_service:
@@ -115,15 +114,14 @@ async def family_coordinator_review(state: WeekendPlanState) -> dict:
     )
 
     nearby_summary = "\n".join(
-        f"- {p.name} ({p.category}, {p.distance_miles:.1f}mi)"
-        for p in nearby[:8]
+        f"- {p.name} ({p.category}, {p.distance_miles:.1f}mi)" for p in nearby[:8]
     )
 
     prompt = FAMILY_REVIEW_PROMPT.format(
         proposal=proposal.model_dump_json(),
         family=family_summary,
         cell_coverage=f"{'Likely available' if coverage.has_likely_service else 'Poor coverage'} "
-                      f"({coverage.road_proximity_miles:.1f}mi from nearest road)",
+        f"({coverage.road_proximity_miles:.1f}mi from nearest road)",
         nearby_activities=nearby_summary or "None found",
     )
 

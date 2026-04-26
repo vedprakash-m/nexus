@@ -48,30 +48,81 @@ class TestAllAgentsApproved:
     def test_all_four_approved(self):
         state = _base_state()
         state["current_verdicts"] = [
-            AgentVerdict(agent_name="meteorology", verdict="APPROVED", is_hard_constraint=False, confidence=1.0),
-            AgentVerdict(agent_name="family_coordinator", verdict="APPROVED", is_hard_constraint=False, confidence=1.0),
-            AgentVerdict(agent_name="nutritional", verdict="APPROVED", is_hard_constraint=False, confidence=1.0),
-            AgentVerdict(agent_name="logistics", verdict="APPROVED", is_hard_constraint=False, confidence=1.0),
+            AgentVerdict(
+                agent_name="meteorology",
+                verdict="APPROVED",
+                is_hard_constraint=False,
+                confidence=1.0,
+            ),
+            AgentVerdict(
+                agent_name="family_coordinator",
+                verdict="APPROVED",
+                is_hard_constraint=False,
+                confidence=1.0,
+            ),
+            AgentVerdict(
+                agent_name="nutritional",
+                verdict="APPROVED",
+                is_hard_constraint=False,
+                confidence=1.0,
+            ),
+            AgentVerdict(
+                agent_name="logistics", verdict="APPROVED", is_hard_constraint=False, confidence=1.0
+            ),
         ]
         assert all_agents_approved(state) is True
 
     def test_needs_info_counts_as_approved(self):
         state = _base_state()
         state["current_verdicts"] = [
-            AgentVerdict(agent_name="meteorology", verdict="APPROVED", is_hard_constraint=False, confidence=1.0),
-            AgentVerdict(agent_name="family_coordinator", verdict="NEEDS_INFO", is_hard_constraint=False, confidence=0.7),
-            AgentVerdict(agent_name="nutritional", verdict="APPROVED", is_hard_constraint=False, confidence=1.0),
-            AgentVerdict(agent_name="logistics", verdict="APPROVED", is_hard_constraint=False, confidence=1.0),
+            AgentVerdict(
+                agent_name="meteorology",
+                verdict="APPROVED",
+                is_hard_constraint=False,
+                confidence=1.0,
+            ),
+            AgentVerdict(
+                agent_name="family_coordinator",
+                verdict="NEEDS_INFO",
+                is_hard_constraint=False,
+                confidence=0.7,
+            ),
+            AgentVerdict(
+                agent_name="nutritional",
+                verdict="APPROVED",
+                is_hard_constraint=False,
+                confidence=1.0,
+            ),
+            AgentVerdict(
+                agent_name="logistics", verdict="APPROVED", is_hard_constraint=False, confidence=1.0
+            ),
         ]
         assert all_agents_approved(state) is True
 
     def test_one_rejected_returns_false(self):
         state = _base_state()
         state["current_verdicts"] = [
-            AgentVerdict(agent_name="meteorology", verdict="REJECTED", is_hard_constraint=True, confidence=1.0),
-            AgentVerdict(agent_name="family_coordinator", verdict="APPROVED", is_hard_constraint=False, confidence=1.0),
-            AgentVerdict(agent_name="nutritional", verdict="APPROVED", is_hard_constraint=False, confidence=1.0),
-            AgentVerdict(agent_name="logistics", verdict="APPROVED", is_hard_constraint=False, confidence=1.0),
+            AgentVerdict(
+                agent_name="meteorology",
+                verdict="REJECTED",
+                is_hard_constraint=True,
+                confidence=1.0,
+            ),
+            AgentVerdict(
+                agent_name="family_coordinator",
+                verdict="APPROVED",
+                is_hard_constraint=False,
+                confidence=1.0,
+            ),
+            AgentVerdict(
+                agent_name="nutritional",
+                verdict="APPROVED",
+                is_hard_constraint=False,
+                confidence=1.0,
+            ),
+            AgentVerdict(
+                agent_name="logistics", verdict="APPROVED", is_hard_constraint=False, confidence=1.0
+            ),
         ]
         assert all_agents_approved(state) is False
 
@@ -79,9 +130,24 @@ class TestAllAgentsApproved:
         """Only 3 of 4 required agents have verdicts."""
         state = _base_state()
         state["current_verdicts"] = [
-            AgentVerdict(agent_name="meteorology", verdict="APPROVED", is_hard_constraint=False, confidence=1.0),
-            AgentVerdict(agent_name="family_coordinator", verdict="APPROVED", is_hard_constraint=False, confidence=1.0),
-            AgentVerdict(agent_name="nutritional", verdict="APPROVED", is_hard_constraint=False, confidence=1.0),
+            AgentVerdict(
+                agent_name="meteorology",
+                verdict="APPROVED",
+                is_hard_constraint=False,
+                confidence=1.0,
+            ),
+            AgentVerdict(
+                agent_name="family_coordinator",
+                verdict="APPROVED",
+                is_hard_constraint=False,
+                confidence=1.0,
+            ),
+            AgentVerdict(
+                agent_name="nutritional",
+                verdict="APPROVED",
+                is_hard_constraint=False,
+                confidence=1.0,
+            ),
             # logistics missing
         ]
         assert all_agents_approved(state) is False

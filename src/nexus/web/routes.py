@@ -15,11 +15,12 @@ HITL resume (Tech §8.3):
 from __future__ import annotations
 
 import asyncio
+import inspect as _inspect
 import json
 import logging
+from contextlib import asynccontextmanager as _acm
 from datetime import date
 from pathlib import Path
-from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -60,9 +61,6 @@ _ALLOWED_MSGPACK_MODULES = [
 ]
 
 
-from contextlib import asynccontextmanager as _acm
-import inspect as _inspect
-
 @_acm
 async def _open_checkpointer(db_path: Path):
     """Shared async context manager for AsyncSqliteSaver — applies the msgpack allowlist.
@@ -82,6 +80,7 @@ async def _open_checkpointer(db_path: Path):
             yield cp
     else:
         import warnings
+
         warnings.warn(
             "AsyncSqliteSaver.from_conn_string does not accept allowed_msgpack_modules "
             "— msgpack warnings may appear. Upgrade langgraph-checkpoint-sqlite>=3.0.0.",
@@ -118,7 +117,6 @@ def _home_area_label(config: NexusConfig) -> str | None:
     if (lat, lon) != _SF_DEFAULT:
         return f"{lat:.2f}°N, {abs(lon):.2f}°{'W' if lon < 0 else 'E'}"
     return None
-    return request.app.state.config
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -154,10 +152,14 @@ async def landing_page(request: Request) -> HTMLResponse:
 async def preflight_page(request: Request) -> HTMLResponse:
     config = _get_config(request)
     status = await preflight_check(request)
-    return _html_page(request, "preflight.html", context={
-        "status": status,
-        "model_name": config.models.local_model,
-    })
+    return _html_page(
+        request,
+        "preflight.html",
+        context={
+            "status": status,
+            "model_name": config.models.local_model,
+        },
+    )
 
 
 @router.get("/setup", response_class=HTMLResponse)
@@ -191,17 +193,23 @@ async def setup_page(request: Request) -> HTMLResponse:
 async def plan_page(request: Request) -> HTMLResponse:
     port = request.url.port or 7820
     from nexus.web.messages import AGENT_ORDER, AGENT_TRACE
-    return _html_page(request, "planning.html", context={
-        "port": port,
-        "agent_trace": AGENT_TRACE,
-        "agent_order": AGENT_ORDER,
-    })
+
+    return _html_page(
+        request,
+        "planning.html",
+        context={
+            "port": port,
+            "agent_trace": AGENT_TRACE,
+            "agent_order": AGENT_ORDER,
+        },
+    )
 
 
 @router.get("/plans", response_class=HTMLResponse)
 async def plans_list_page(request: Request) -> HTMLResponse:
     config = _get_config(request)
     from nexus.stats import get_recent_plans as _get_recent
+
     stats_db = config.paths.base_dir / "stats.db"
     plans = _get_recent(stats_db, limit=50)
     return _html_page(request, "history.html", context={"plans": plans})
@@ -232,9 +240,7 @@ async def plan_detail_page(request: Request, request_id: str) -> HTMLResponse:
             if output_html:
                 return HTMLResponse(content=output_html)
         except Exception as exc:
-            logger.warning(
-                "Could not load checkpoint for plan %s: %s", request_id, exc
-            )
+            logger.warning("Could not load checkpoint for plan %s: %s", request_id, exc)
 
     # Fallback: plan still running or checkpoint not found
     return _html_page(
@@ -261,7 +267,9 @@ async def start_planning(request: Request, body: PlanRequest) -> PlanResponse:
         try:
             target_date = date.fromisoformat(body.target_date)
         except ValueError:
-            raise HTTPException(status_code=422, detail="Invalid target_date format — expected YYYY-MM-DD")
+            raise HTTPException(
+                status_code=422, detail="Invalid target_date format — expected YYYY-MM-DD"
+            )
 
     # Launch planning in background (WebSocket streams progress)
     request_id = _new_request_id()
@@ -270,6 +278,7 @@ async def start_planning(request: Request, body: PlanRequest) -> PlanResponse:
 
     # Store lightweight context for the planning page to display as inputs
     import time as _time
+
     _now_ts = _time.monotonic()
     # ISSUE-08: Evict stale contexts older than 2 hours before inserting
     _stale = [k for k, t in _plan_context_timestamps.items() if _now_ts - t > 7200]
@@ -285,31 +294,38 @@ async def start_planning(request: Request, body: PlanRequest) -> PlanResponse:
         "dietary_restrictions": config.user.dietary_restrictions or [],
         "max_driving_minutes": config.user.max_driving_minutes,
         "home_area": _home_area_label(config),  # ISSUE-12
-        "family_members": [
-            {"name": m.name, "age": m.age}
-            for m in config.family.members
-        ],
+        "family_members": [{"name": m.name, "age": m.age} for m in config.family.members],
         "preferred_activities": config.user.preferred_activities or [],
     }
     _plan_context_timestamps[request_id] = _time.monotonic()
 
     # Record plan start for stats tracking (UX §9.4, task 6.17)
     from nexus.stats import record_plan_started
+
     stats_db = config.paths.base_dir / "stats.db"
     activity_type = body.intent.strip()[:80] if body.intent else None
     record_plan_started(stats_db, request_id, activity_type)
 
     async def _run() -> None:
         from nexus.web.progress import get_or_create as _prog_get
+
         async with lock:
             try:
                 _progress = _prog_get(request_id)
-                await run_planning(body.intent, config, progress=_progress, request_id=request_id, target_date=target_date)
+                await run_planning(
+                    body.intent,
+                    config,
+                    progress=_progress,
+                    request_id=request_id,
+                    target_date=target_date,
+                )
             except asyncio.CancelledError:
                 # stop_planning message received — emit cancellation event (task 6.12)
                 logger.info("Planning run cancelled by user for %s", request_id)
                 try:
-                    await _prog_get(request_id).on_planning_error("cancelled", "Planning stopped by user")
+                    await _prog_get(request_id).on_planning_error(
+                        "cancelled", "Planning stopped by user"
+                    )
                 except Exception:
                     pass
             except Exception as exc:
@@ -375,7 +391,10 @@ async def approve_plan(request: Request, request_id: str) -> ApproveResponse:
             if pre_state and pre_state.values:
                 rejection_count = pre_state.values.get("human_rejection_count", 0)
                 if not pre_state.values.get("output_html"):
-                    raise HTTPException(status_code=409, detail="Plan is not ready for approval yet — still in progress")
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Plan is not ready for approval yet — still in progress",
+                    )
         except HTTPException:
             raise
         except Exception:
@@ -385,6 +404,7 @@ async def approve_plan(request: Request, request_id: str) -> ApproveResponse:
 
     # Record approval in stats (UX §9.4, task 6.17)
     from nexus.stats import record_plan_approved
+
     stats_db = config.paths.base_dir / "stats.db"
     record_plan_approved(stats_db, request_id, pass_number=rejection_count + 1)
 
@@ -441,6 +461,7 @@ async def reject_plan(request: Request, request_id: str, body: RejectRequest) ->
     # ── 4. Update state + resume in background (fresh connection) ───────────
     async def _resume() -> None:
         from nexus.web.progress import get_or_create as _prog_get
+
         lock = _active_locks.setdefault(request_id, asyncio.Lock())
         async with lock:
             # Reset progress so the browser sees fresh events (not stale plan_ready)
@@ -449,6 +470,7 @@ async def reject_plan(request: Request, request_id: str, body: RejectRequest) ->
             _progress._iteration = 1
 
             import nexus.runtime as _runtime
+
             async with _open_checkpointer(checkpoint_path) as _ckpt2:
                 from nexus.graph.planner import build_planning_graph as _bpg2
                 from nexus.llm.router import ModelRouter as _MR
@@ -466,8 +488,19 @@ async def reject_plan(request: Request, request_id: str, body: RejectRequest) ->
                 # (which is an upsert-by-agent-name reducer) actually clears them.
                 # Passing an empty list is a no-op in the reducer.
                 cleared_verdicts = [
-                    _AV(agent_name=name, verdict="NEEDS_INFO", is_hard_constraint=False, confidence=0.0)
-                    for name in ["meteorology", "family_coordinator", "nutritional", "logistics", "safety"]
+                    _AV(
+                        agent_name=name,
+                        verdict="NEEDS_INFO",
+                        is_hard_constraint=False,
+                        confidence=0.0,
+                    )
+                    for name in [
+                        "meteorology",
+                        "family_coordinator",
+                        "nutritional",
+                        "logistics",
+                        "safety",
+                    ]
                 ]
                 await g2.aupdate_state(
                     thread_cfg,
@@ -481,11 +514,20 @@ async def reject_plan(request: Request, request_id: str, body: RejectRequest) ->
                 )
 
                 # Stream events to broadcast progress to the planning page WebSocket
-                _RESUME_NODES = frozenset([
-                    "parse_intent", "draft_proposal", "review_meteorology",
-                    "review_family", "review_nutrition", "review_logistics",
-                    "check_consensus", "review_safety", "synthesize_plan", "save_plan",
-                ])
+                _RESUME_NODES = frozenset(
+                    [
+                        "parse_intent",
+                        "draft_proposal",
+                        "review_meteorology",
+                        "review_family",
+                        "review_nutrition",
+                        "review_logistics",
+                        "check_consensus",
+                        "review_safety",
+                        "synthesize_plan",
+                        "save_plan",
+                    ]
+                )
 
                 async def _stream_resume() -> None:
                     async for _evt in g2.astream_events(None, config=thread_cfg, version="v2"):
@@ -501,7 +543,9 @@ async def reject_plan(request: Request, request_id: str, body: RejectRequest) ->
                 try:
                     await asyncio.wait_for(_stream_resume(), timeout=90.0)
                 except asyncio.TimeoutError:
-                    await _progress.on_planning_error("timeout", "Re-planning timed out after 90 seconds")
+                    await _progress.on_planning_error(
+                        "timeout", "Re-planning timed out after 90 seconds"
+                    )
                     return
                 except Exception as _exc:
                     logger.error("Replan stream error for %s: %s", request_id, _exc)
@@ -515,9 +559,13 @@ async def reject_plan(request: Request, request_id: str, body: RejectRequest) ->
                     if _out_html:
                         await _progress.on_plan_ready(_out_html)
                     else:
-                        await _progress.on_planning_error("no_output", "Re-planning completed but produced no output")
+                        await _progress.on_planning_error(
+                            "no_output", "Re-planning completed but produced no output"
+                        )
                 except Exception as _snap_exc:
-                    logger.warning("Could not emit plan_ready after replan for %s: %s", request_id, _snap_exc)
+                    logger.warning(
+                        "Could not emit plan_ready after replan for %s: %s", request_id, _snap_exc
+                    )
 
     # Only start replanning immediately when feedback is NOT a repeat.
     # For repeated feedback, offer_anyway=True lets the user choose explicitly.
@@ -530,19 +578,23 @@ async def reject_plan(request: Request, request_id: str, body: RejectRequest) ->
     stats_db = config.paths.base_dir / "stats.db"
     record_plan_rejected(stats_db, request_id)
 
-    response: dict = {"request_id": request_id, "status": "rejected", "message": "Re-planning started"}
+    response: dict = {
+        "request_id": request_id,
+        "status": "rejected",
+        "message": "Re-planning started",
+    }
     if is_repeated:
         response["status"] = "offer_anyway"
         response["message"] = "Same feedback detected — replan manually if you wish."
         response["offer_anyway"] = True
-        response["hint"] = "You've given the same feedback before — would you like to proceed with the existing plan instead?"
+        response["hint"] = (
+            "You've given the same feedback before — would you like to proceed with the existing plan instead?"
+        )
     return response
 
 
 @router.post("/api/plans/{request_id}/constraint")
-async def add_constraint(
-    request: Request, request_id: str, body: ConstraintRequest
-) -> dict:
+async def add_constraint(request: Request, request_id: str, body: ConstraintRequest) -> dict:
     """Inject a mid-flight constraint — appended to pending_constraints queue."""
     config = _get_config(request)
     checkpoint_path = config.paths.checkpoints_dir / "nexus.db"
@@ -566,16 +618,14 @@ async def add_constraint(
 
 
 @router.post("/api/plans/{request_id}/feedback")
-async def submit_feedback(
-    request: Request, request_id: str, body: FeedbackRequest
-) -> dict:
+async def submit_feedback(request: Request, request_id: str, body: FeedbackRequest) -> dict:
     """Store human feedback for the plan."""
     config = _get_config(request)
     checkpoint_path = config.paths.checkpoints_dir / "nexus.db"
 
-    async with __import__("langgraph.checkpoint.sqlite.aio", fromlist=["AsyncSqliteSaver"]).AsyncSqliteSaver.from_conn_string(
-        str(checkpoint_path)
-    ) as checkpointer:
+    async with __import__(
+        "langgraph.checkpoint.sqlite.aio", fromlist=["AsyncSqliteSaver"]
+    ).AsyncSqliteSaver.from_conn_string(str(checkpoint_path)) as checkpointer:
         from nexus.graph.planner import build_planning_graph
 
         graph = build_planning_graph(checkpointer=checkpointer)
@@ -619,12 +669,15 @@ async def submit_feedback(
             else:
                 logger.warning("Plan file not found for feedback: %s", plan_path)
         else:
-            logger.warning("Could not resolve plan file for request %s — feedback not appended", request_id)
+            logger.warning(
+                "Could not resolve plan file for request %s — feedback not appended", request_id
+            )
     except Exception as _fb_exc:
         logger.warning("Feedback append failed for %s: %s", request_id, _fb_exc)
 
     # Track feedback completion rate (UX §15.1)
     from nexus.stats import record_feedback_given
+
     stats_db = config.paths.base_dir / "stats.db"
     record_feedback_given(stats_db, request_id)
 
@@ -632,9 +685,7 @@ async def submit_feedback(
 
 
 @router.post("/api/plans/{request_id}/trust-score")
-async def submit_trust_score(
-    request: Request, request_id: str, body: dict
-) -> dict:
+async def submit_trust_score(request: Request, request_id: str, body: dict) -> dict:
     """
     Record user trust score (1–5) for an approved plan — PRD §12.1.
 
@@ -705,13 +756,18 @@ async def setup_profile(request: Request, body: SetupRequest) -> dict:
             # No Google key configured, or Google returned no results — try Nominatim
             coords = await _geocode_nominatim(body.home_address)
         if coords is None:
-            raise HTTPException(status_code=422, detail=f"Could not find location: {body.home_address!r}")
+            raise HTTPException(
+                status_code=422, detail=f"Could not find location: {body.home_address!r}"
+            )
         home_lat, home_lon = coords
     except HTTPException:
         raise
     except Exception as _exc:
         logger.warning("Geocoding failed: %s", _exc)
-        raise HTTPException(status_code=422, detail="Could not geocode address — check your internet connection and try again")
+        raise HTTPException(
+            status_code=422,
+            detail="Could not geocode address — check your internet connection and try again",
+        )
 
     from ruamel.yaml import YAML
 
@@ -774,7 +830,7 @@ async def save_api_keys(request: Request, body: ApiKeyRequest) -> dict:
 
     if env_path.exists():
         existing = env_path.read_text(encoding="utf-8").splitlines()
-        lines = [l for l in existing if not l.startswith("GOOGLE_PLACES_API_KEY=")]
+        lines = [ln for ln in existing if not ln.startswith("GOOGLE_PLACES_API_KEY=")]
 
     if body.google_places_api_key:
         lines.append(f"GOOGLE_PLACES_API_KEY={body.google_places_api_key}")
@@ -851,7 +907,8 @@ async def websocket_plan_progress(websocket: WebSocket, request_id: str) -> None
     """
     await websocket.accept()
 
-    from nexus.web.progress import get_or_create, cleanup as _cleanup_progress
+    from nexus.web.progress import get_or_create
+
     progress = get_or_create(request_id)
     await progress.attach(websocket)
 
@@ -879,7 +936,9 @@ async def websocket_plan_progress(websocket: WebSocket, request_id: str) -> None
                                 if _state.values:
                                     _existing = list(_state.values.get("pending_constraints", []))
                                     _existing.append(constraint_text)
-                                    await _graph.aupdate_state(_tc, {"pending_constraints": _existing})
+                                    await _graph.aupdate_state(
+                                        _tc, {"pending_constraints": _existing}
+                                    )
                                     logger.info("WS constraint injected for %s", request_id)
                         except Exception as _exc:
                             logger.warning("WS add_constraint failed for %s: %s", request_id, _exc)

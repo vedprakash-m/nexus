@@ -54,6 +54,7 @@ async def nutritional_review(state: WeekendPlanState) -> dict:
     dietary_restrictions = getattr(user, "dietary_restrictions", []) if user else []
 
     from nexus.config import NexusConfig
+
     _config = state.get("config")
     _restaurant_radius = (
         _config.planning.restaurant_search_radius_miles
@@ -168,8 +169,11 @@ async def nutritional_review(state: WeekendPlanState) -> dict:
             (r for r in restaurants if r.name.lower() == rec_name_lower),
             None,
         ) or next(
-            (r for r in restaurants
-             if r.name.lower() in rec_name_lower or rec_name_lower in r.name.lower()),
+            (
+                r
+                for r in restaurants
+                if r.name.lower() in rec_name_lower or rec_name_lower in r.name.lower()
+            ),
             None,
         )
         if matched:

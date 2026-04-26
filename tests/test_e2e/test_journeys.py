@@ -16,7 +16,6 @@ Journey map (UX §3.1–3.4):
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -415,9 +414,7 @@ class TestRejectionJourney:
         current_count = 2
 
         is_repeated = (
-            current_count >= 1
-            and bool(last)
-            and last.strip().lower() == new.strip().lower()
+            current_count >= 1 and bool(last) and last.strip().lower() == new.strip().lower()
         )
         assert is_repeated is True
 
@@ -427,9 +424,7 @@ class TestRejectionJourney:
         current_count = 2
 
         is_repeated = (
-            current_count >= 1
-            and bool(last)
-            and last.strip().lower() == new.strip().lower()
+            current_count >= 1 and bool(last) and last.strip().lower() == new.strip().lower()
         )
         assert is_repeated is False
 

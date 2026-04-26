@@ -14,7 +14,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from nexus.graph.planner import build_planning_graph
@@ -97,7 +96,6 @@ async def _run_until_error(graph: object, initial: dict, thread_id: str) -> None
 
 
 class TestCheckpointPersistence:
-
     async def test_graph_compiles_with_async_sqlite_saver(self):
         """build_planning_graph() accepts an AsyncSqliteSaver without error."""
         with tempfile.TemporaryDirectory() as d:
@@ -225,4 +223,3 @@ class TestCheckpointPersistence:
             # Should not raise; values will be empty dict or None
             assert snapshot is not None
             assert not snapshot.values  # empty dict {} or None — both are falsy
-

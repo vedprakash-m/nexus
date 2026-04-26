@@ -125,7 +125,9 @@ class TestGooglePlaces:
     async def test_search_restaurants_handles_request_denied(self, httpx_mock):
         from nexus.tools.providers.places.google import GooglePlaces
 
-        httpx_mock.add_response(json={"status": "REQUEST_DENIED", "error_message": "API key missing"})
+        httpx_mock.add_response(
+            json={"status": "REQUEST_DENIED", "error_message": "API key missing"}
+        )
 
         places = GooglePlaces(api_key="")
         results = await places.search_restaurants((37.39, -122.08), 5.0)
@@ -152,9 +154,9 @@ class TestOverpassActivities:
 
         # Return element with no name — reusable so all 3 mirrors are covered
         httpx_mock.add_response(
-            json={"elements": [
-                {"type": "node", "id": 111, "lat": 37.0, "lon": -122.0, "tags": {}}
-            ]},
+            json={
+                "elements": [{"type": "node", "id": 111, "lat": 37.0, "lon": -122.0, "tags": {}}]
+            },
             is_reusable=True,
         )
 
@@ -237,7 +239,9 @@ class TestFetchWithFallbackRetry:
             if call_count < 3:
                 # Simulate 500 Internal Server Error (transient — should be retried)
                 resp = httpx.Response(500)
-                raise httpx.HTTPStatusError("server error", request=httpx.Request("GET", "http://x"), response=resp)
+                raise httpx.HTTPStatusError(
+                    "server error", request=httpx.Request("GET", "http://x"), response=resp
+                )
             return "success_value"
 
         cache_dir = tmp_path / "cache"
@@ -268,7 +272,9 @@ class TestFetchWithFallbackRetry:
             nonlocal call_count
             call_count += 1
             resp = httpx.Response(401)
-            raise httpx.HTTPStatusError("unauthorized", request=httpx.Request("GET", "http://x"), response=resp)
+            raise httpx.HTTPStatusError(
+                "unauthorized", request=httpx.Request("GET", "http://x"), response=resp
+            )
 
         cache_dir = tmp_path / "cache2"
         with Cache(str(cache_dir)) as cache:

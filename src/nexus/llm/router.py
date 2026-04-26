@@ -59,10 +59,7 @@ class ModelRouter:
             return self._local_model
 
         # Cloud opt-in: agent must be in config's cloud agents list
-        if (
-            self._cloud_model is not None
-            and agent_name in self._config.models.cloud_agents.agents
-        ):
+        if self._cloud_model is not None and agent_name in self._config.models.cloud_agents.agents:
             return self._cloud_model
 
         return self._local_model

@@ -31,7 +31,7 @@ _env = jinja2.Environment(
 
 def render_plan_markdown(state: "WeekendPlanState", narrative_text: str) -> str:
     """Render plan.md.j2 with plan state → Markdown string."""
-    from nexus.output.html import _build_context, _build_timeline
+    from nexus.output.html import _build_timeline
     from nexus.output.renderer import _parse_narrative
 
     proposal = state.get("primary_activity")
@@ -54,7 +54,9 @@ def render_plan_markdown(state: "WeekendPlanState", narrative_text: str) -> str:
             "target_date": target_date.isoformat() if target_date else "unknown",
             "activity_name": proposal.activity_name,
             "estimated_duration_hours": proposal.estimated_duration_hours,
-            "start_time": proposal.start_time.strftime("%-I:%M %p") if proposal.start_time else None,
+            "start_time": proposal.start_time.strftime("%-I:%M %p")
+            if proposal.start_time
+            else None,
             "why_this_plan": why_text,
             "day_narrative": day_text,
             "timeline": timeline,

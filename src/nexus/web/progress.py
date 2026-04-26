@@ -10,7 +10,6 @@ Each event has a unique `event_id` for client-side deduplication.
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import uuid

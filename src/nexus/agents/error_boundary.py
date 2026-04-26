@@ -18,7 +18,6 @@ import functools
 import logging
 import traceback
 from collections.abc import Callable
-from typing import Any
 
 from nexus.resilience import AgentFailureType, HardConstraintDataUnavailable
 from nexus.state.graph_state import WeekendPlanState
@@ -110,7 +109,5 @@ def _failure_verdict(
 
     return {
         "current_verdicts": [verdict],
-        "negotiation_log": [
-            f"{agent_name}: {verdict_value} ({failure_type.value}) — {reason}"
-        ],
+        "negotiation_log": [f"{agent_name}: {verdict_value} ({failure_type.value}) — {reason}"],
     }
